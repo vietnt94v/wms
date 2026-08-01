@@ -9,7 +9,7 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toaster } from '@/components/ui/toaster'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { ScanWorkspace } from './ScanWorkspace'
 import { StatusBadge } from './StatusBadge'
 
@@ -29,19 +29,22 @@ export function SessionPage() {
   if (!session) {
     return (
       <Stack>
-        <ReceivingNav />
+        <BackToMenuButton />
         <Text>Session not found</Text>
       </Stack>
     )
   }
 
-  const canOperate =
-    !session.unknownArrival || !!session.supervisorApproved
+  const hasAsn = session.asnId !== 'UNKNOWN' && !!asn
+  const needsSupervisor =
+    !!session.unknownArrival && !session.supervisorApproved
+  const canOperate = hasAsn && !needsSupervisor
+  const showRejectUnknown = !hasAsn || needsSupervisor
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">Receiving session</Heading>
-      <ReceivingNav />
 
       <HStack gap="4" flexWrap="wrap">
         <Meta label="Session" value={session.id} />
@@ -52,14 +55,17 @@ export function SessionPage() {
         <StatusBadge status={session.status} />
       </HStack>
 
-      {session.unknownArrival && !session.supervisorApproved && (
+      {showRejectUnknown && (
         <Box bg="bg.error" borderWidth="1px" borderColor="red.emphasized" p="4" borderRadius="lg">
           <Text fontWeight="bold" color="fg.error">
-            Unscheduled / Unknown arrival
+            {!hasAsn
+              ? 'No ASN linked'
+              : 'Unscheduled / Unknown arrival'}
           </Text>
           <Text mt="1" fontSize="sm">
-            Truck plate does not match appointment/ASN, or ASN is unknown. Reject
-            delivery or request supervisor exception.
+            {!hasAsn
+              ? 'This session has no ASN. Reject the arrival and gate-in again with a matching appointment/plate. Supervisor approve alone cannot unlock scanning without an ASN.'
+              : 'Truck plate does not match appointment/ASN, or ASN is unknown. Reject delivery or request supervisor exception.'}
           </Text>
           <HStack mt="3">
             <Button
@@ -72,18 +78,20 @@ export function SessionPage() {
             >
               Reject truck
             </Button>
-            <Button
-              colorPalette="orange"
-              onClick={() => {
-                approveUnknownArrival(session.id)
-                toaster.create({
-                  title: 'Exception approved',
-                  type: 'success',
-                })
-              }}
-            >
-              Supervisor approve exception
-            </Button>
+            {needsSupervisor && hasAsn && (
+              <Button
+                colorPalette="orange"
+                onClick={() => {
+                  approveUnknownArrival(session.id)
+                  toaster.create({
+                    title: 'Exception approved',
+                    type: 'success',
+                  })
+                }}
+              >
+                Supervisor approve exception
+              </Button>
+            )}
           </HStack>
         </Box>
       )}
@@ -138,13 +146,6 @@ export function SessionPage() {
 
       {session.status === 'RECEIVING' && asn && (
         <ScanWorkspace session={session} asn={asn} />
-      )}
-
-      {!asn && session.asnId === 'UNKNOWN' && (
-        <Text color="fg.error">
-          No ASN linked — scanning is blocked until arrival is rejected or
-          linked by supervisor process.
-        </Text>
       )}
     </Stack>
   )

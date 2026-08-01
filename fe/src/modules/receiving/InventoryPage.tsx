@@ -1,6 +1,6 @@
 import { Box, Heading, Stack, Table, Text } from '@chakra-ui/react'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 
 export function InventoryPage() {
   const inventory = useReceivingStore((s) => s.inventory)
@@ -8,12 +8,12 @@ export function InventoryPage() {
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">Inventory Update</Heading>
       <Text color="fg.muted">
         Available stock increases after putaway confirm. Quarantine is tracked
         separately.
       </Text>
-      <ReceivingNav />
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
         <Table.Root size="sm">
           <Table.Header>

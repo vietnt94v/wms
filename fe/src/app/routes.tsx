@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './AppLayout'
 import { InboundPage } from '@/modules/inbound'
+import { ReceivingHome } from '@/modules/receiving/ReceivingHome'
 import { ReceivingDashboard } from '@/modules/receiving/Dashboard'
 import { AsnListPage } from '@/modules/receiving/AsnListPage'
 import { AsnDetailPage } from '@/modules/receiving/AsnDetailPage'
@@ -20,7 +21,8 @@ export function AppRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<Navigate to="/receiving" replace />} />
         <Route path="inbound" element={<InboundPage />} />
-        <Route path="receiving" element={<ReceivingDashboard />} />
+        <Route path="receiving" element={<ReceivingHome />} />
+        <Route path="receiving/dashboard" element={<ReceivingDashboard />} />
         <Route path="receiving/asn" element={<AsnListPage />} />
         <Route path="receiving/asn/:id" element={<AsnDetailPage />} />
         <Route path="receiving/docks" element={<DocksPage />} />

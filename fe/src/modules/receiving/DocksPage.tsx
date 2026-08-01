@@ -14,7 +14,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom'
 import { toaster } from '@/components/ui/toaster'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function DocksPage() {
@@ -75,8 +75,8 @@ export function DocksPage() {
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">Dock Scheduling & Gate-in</Heading>
-      <ReceivingNav />
 
       <SimpleGrid columns={{ base: 1, md: 5 }} gap="3">
         {docks.map((dock) => {
@@ -103,10 +103,13 @@ export function DocksPage() {
                     </Link>
                   </Text>
                   <StatusBadge status={session.status} />
-                  {session.unknownArrival && !session.supervisorApproved && (
+                  {(session.asnId === 'UNKNOWN' ||
+                    (session.unknownArrival && !session.supervisorApproved)) && (
                     <Box bg="bg.error" p="2" borderRadius="md" mt="1">
                       <Text fontSize="sm" color="fg.error" fontWeight="bold">
-                        Unscheduled / Unknown arrival
+                        {session.asnId === 'UNKNOWN'
+                          ? 'No ASN linked'
+                          : 'Unscheduled / Unknown arrival'}
                       </Text>
                       <HStack mt="2">
                         <Button
@@ -122,23 +125,28 @@ export function DocksPage() {
                         >
                           Reject
                         </Button>
-                        <Button
-                          size="xs"
-                          colorPalette="orange"
-                          onClick={() => {
-                            approveUnknownArrival(session.id)
-                            toaster.create({
-                              title: 'Supervisor approved',
-                              type: 'success',
-                            })
-                          }}
-                        >
-                          Supervisor approve
-                        </Button>
+                        {session.asnId !== 'UNKNOWN' &&
+                          session.unknownArrival &&
+                          !session.supervisorApproved && (
+                            <Button
+                              size="xs"
+                              colorPalette="orange"
+                              onClick={() => {
+                                approveUnknownArrival(session.id)
+                                toaster.create({
+                                  title: 'Supervisor approved',
+                                  type: 'success',
+                                })
+                              }}
+                            >
+                              Supervisor approve
+                            </Button>
+                          )}
                       </HStack>
                     </Box>
                   )}
                   {session.status === 'GATE_IN' &&
+                    session.asnId !== 'UNKNOWN' &&
                     (!session.unknownArrival || session.supervisorApproved) && (
                       <Button
                         size="xs"

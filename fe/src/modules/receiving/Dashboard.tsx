@@ -1,7 +1,7 @@
 import { Box, Heading, HStack, SimpleGrid, Stack, Table, Text } from '@chakra-ui/react'
 import { Link } from 'react-router-dom'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function ReceivingDashboard() {
@@ -18,8 +18,8 @@ export function ReceivingDashboard() {
 
   return (
     <Stack gap="4">
-      <Heading size="xl">Receiving</Heading>
-      <ReceivingNav />
+      <BackToMenuButton />
+      <Heading size="xl">Receiving Dashboard</Heading>
 
       <SimpleGrid columns={{ base: 1, md: 4 }} gap="4">
         <Kpi title="ASN total" value={String(asns.length)} />

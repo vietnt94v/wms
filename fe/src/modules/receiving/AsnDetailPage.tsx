@@ -1,7 +1,7 @@
 import { Box, Heading, SimpleGrid, Stack, Table, Text } from '@chakra-ui/react'
 import { Link, useParams } from 'react-router-dom'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function AsnDetailPage() {
@@ -17,7 +17,7 @@ export function AsnDetailPage() {
   if (!asn) {
     return (
       <Stack>
-        <ReceivingNav />
+        <BackToMenuButton />
         <Text>ASN not found</Text>
       </Stack>
     )
@@ -25,8 +25,8 @@ export function AsnDetailPage() {
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">{asn.id}</Heading>
-      <ReceivingNav />
       <HMeta
         items={[
           ['PO', asn.poId],

@@ -1,7 +1,7 @@
 import { Box, Heading, Stack, Table, Text } from '@chakra-ui/react'
 import { Link } from 'react-router-dom'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function AsnListPage() {
@@ -10,12 +10,12 @@ export function AsnListPage() {
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">ASN Inbox</Heading>
       <Text color="fg.muted">
         Read-only inbox of ASN/PO pushed from external systems (or Inbound Feed
         mock).
       </Text>
-      <ReceivingNav />
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
         <Table.Root size="sm">
           <Table.Header>

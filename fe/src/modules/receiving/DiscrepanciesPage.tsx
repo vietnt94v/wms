@@ -10,7 +10,7 @@ import {
 import { toaster } from '@/components/ui/toaster'
 import type { DiscrepancyResolution } from '@/lib/domain/receiving'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 const actions: Array<{ resolution: DiscrepancyResolution; label: string; color: string }> = [
@@ -28,11 +28,11 @@ export function DiscrepanciesPage() {
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">Discrepancy Handling</Heading>
       <Text color="fg.muted">
         OVER / SHORT / DAMAGED / WRONG_ITEM / QC_FAIL. Resolve before putaway.
       </Text>
-      <ReceivingNav />
 
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
         <Table.Root size="sm">

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Box, Button, Heading, Stack, Table, Text } from '@chakra-ui/react'
 import { toaster } from '@/components/ui/toaster'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function PutawayTasksPage() {
@@ -17,12 +17,12 @@ export function PutawayTasksPage() {
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">Putaway Tasks (from Receiving)</Heading>
       <Text color="fg.muted">
         Confirm storage location. Inventory updates on confirm. Full Putaway
         module remains a stub.
       </Text>
-      <ReceivingNav />
 
       <HStackLike>
         {readySessions.map((s) => (

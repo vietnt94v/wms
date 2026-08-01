@@ -13,7 +13,7 @@ import {
 } from '@chakra-ui/react'
 import { toaster } from '@/components/ui/toaster'
 import { useReceivingStore } from '@/store/receivingStore'
-import { ReceivingNav } from './ReceivingNav'
+import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function QcPage() {
@@ -59,11 +59,11 @@ export function QcPage() {
 
   return (
     <Stack gap="4">
+      <BackToMenuButton />
       <Heading size="xl">Quality Check</Heading>
       <Text color="fg.muted">
         Fail → quarantine stock (not available), auto QC_FAIL discrepancy.
       </Text>
-      <ReceivingNav />
 
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
         <Stack gap="3" maxW="560px">
