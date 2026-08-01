@@ -2,7 +2,9 @@ import { create } from 'zustand'
 import {
   canFinishReceiving,
   getQcResultForSku,
+  resolveVarianceDiscrepancyType,
   uid,
+  willCauseVariance,
   type ASN,
   type Appointment,
   type Discrepancy,
@@ -13,11 +15,16 @@ import {
   type PurchaseOrder,
   type PutawayTask,
   type QCResult,
+  type ReceiptVarianceReasonId,
   type ReceivingSession,
   type ScanEvent,
   type Supplier,
 } from '@/lib/domain/receiving'
-import { findSsccOnOtherAsn, validateScan } from '@/lib/domain/scan'
+import {
+  findSsccOnOtherAsn,
+  validateScan,
+  type ScanLineInput,
+} from '@/lib/domain/scan'
 import {
   asns as seedAsns,
   docks as seedDocks,
@@ -67,6 +74,11 @@ interface ReceivingState {
     code: string
     lot?: string
     expiry?: string
+    qty?: number
+    lines?: ScanLineInput[]
+    varianceReason?: string
+    varianceReasonId?: ReceiptVarianceReasonId
+    confirm?: boolean
     allowOverOverride?: boolean
   }) => ScanEvent
 
@@ -335,7 +347,18 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
     })
   },
 
-  scan: ({ sessionId, code, lot, expiry, allowOverOverride }) => {
+  scan: ({
+    sessionId,
+    code,
+    lot,
+    expiry,
+    qty,
+    lines,
+    varianceReason,
+    varianceReasonId,
+    confirm = false,
+    allowOverOverride,
+  }) => {
     const state = get()
     const session = state.sessions.find((s) => s.id === sessionId)
     if (!session) {
@@ -415,6 +438,10 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
       products: state.products,
       lot,
       expiry,
+      qty,
+      lines,
+      varianceReason,
+      confirm,
       allowOverOverride,
     })
 
@@ -427,6 +454,10 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
       message: validation.message,
       actionHint: validation.actionHint,
       ts: new Date().toISOString(),
+    }
+
+    if (!confirm) {
+      return event
     }
 
     set((s) => {
@@ -476,22 +507,44 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
             })
           : s.asns
 
-      const nextDiscrepancies =
-        validation.apply?.createDiscrepancy && validation.result !== 'OK'
-          ? [
-              ...s.discrepancies,
-              {
-                id: uid('DSC'),
-                sessionId,
-                asnId: asn.id,
-                type: validation.apply.createDiscrepancy.type,
-                sku: validation.apply.createDiscrepancy.sku,
-                qty: validation.apply.createDiscrepancy.qty,
-                note: validation.apply.createDiscrepancy.note,
-                resolution: 'PENDING' as const,
-              },
-            ]
-          : s.discrepancies
+      let nextDiscrepancies = s.discrepancies
+
+      if (validation.apply?.createDiscrepancy && validation.result !== 'OK') {
+        nextDiscrepancies = [
+          ...nextDiscrepancies,
+          {
+            id: uid('DSC'),
+            sessionId,
+            asnId: asn.id,
+            type: validation.apply.createDiscrepancy.type,
+            sku: validation.apply.createDiscrepancy.sku,
+            qty: validation.apply.createDiscrepancy.qty,
+            note: validation.apply.createDiscrepancy.note,
+            resolution: 'PENDING' as const,
+          },
+        ]
+      }
+
+      if (applyOk && validation.apply?.lines && varianceReason?.trim()) {
+        const varianceDiscs: Discrepancy[] = []
+        for (const line of validation.apply.lines) {
+          const check = willCauseVariance(asn, session, line.sku, line.qty)
+          if (!check.hasVariance) continue
+          varianceDiscs.push({
+            id: uid('DSC'),
+            sessionId,
+            asnId: asn.id,
+            type: resolveVarianceDiscrepancyType(varianceReasonId, check.gap),
+            sku: line.sku,
+            qty: Math.abs(check.gap),
+            note: varianceReason.trim(),
+            resolution: 'PENDING',
+          })
+        }
+        if (varianceDiscs.length > 0) {
+          nextDiscrepancies = [...nextDiscrepancies, ...varianceDiscs]
+        }
+      }
 
       return {
         sessions: nextSessions,
@@ -520,6 +573,14 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
         .reduce((sum, l) => sum + l.qty, 0)
       const short = line.expectedQty - received
       if (short <= 0) continue
+      const alreadyLogged = state.discrepancies.some(
+        (d) =>
+          d.sessionId === sessionId &&
+          d.sku === line.sku &&
+          d.type === 'SHORT' &&
+          d.resolution === 'PENDING',
+      )
+      if (alreadyLogged) continue
       shortDisc.push({
         id: uid('DSC'),
         sessionId,

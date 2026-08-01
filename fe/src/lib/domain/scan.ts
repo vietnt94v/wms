@@ -1,11 +1,20 @@
 import {
   OVER_RECEIPT_TOLERANCE,
+  willCauseVariance,
   type ASN,
   type AsnPallet,
+  type DiscrepancyType,
   type Product,
   type ReceivingSession,
   type ScanResult,
 } from './receiving'
+
+export interface ScanLineInput {
+  sku: string
+  qty: number
+  lot?: string
+  expiry?: string
+}
 
 export interface ScanValidationInput {
   code: string
@@ -14,6 +23,10 @@ export interface ScanValidationInput {
   products: Product[]
   lot?: string
   expiry?: string
+  qty?: number
+  lines?: ScanLineInput[]
+  varianceReason?: string
+  confirm?: boolean
   allowOverOverride?: boolean
 }
 
@@ -25,14 +38,20 @@ export interface ScanValidationResult {
   kind: 'SSCC' | 'SKU' | 'CONTAINER'
   apply?: {
     sscc?: string
-    lines?: Array<{ sku: string; qty: number; lot?: string; expiry?: string }>
+    lines?: ScanLineInput[]
     containerCode?: string
     createDiscrepancy?: {
-      type: 'OVER' | 'WRONG_ITEM' | 'DAMAGED' | 'UNKNOWN'
+      type: DiscrepancyType
       sku?: string
       qty: number
       note?: string
     }
+    createDiscrepancies?: Array<{
+      type: DiscrepancyType
+      sku?: string
+      qty: number
+      note?: string
+    }>
   }
 }
 
@@ -40,6 +59,16 @@ const SSCC_PATTERN = /^00\d{18}$/
 
 function findPallet(asn: ASN, sscc: string): AsnPallet | undefined {
   return asn.pallets.find((p) => p.sscc === sscc)
+}
+
+function linesHaveVariance(
+  asn: ASN,
+  session: ReceivingSession,
+  lines: ScanLineInput[],
+): boolean {
+  return lines.some((l) =>
+    willCauseVariance(asn, session, l.sku, l.qty).hasVariance,
+  )
 }
 
 function validateSsccScan(input: ScanValidationInput): ScanValidationResult {
@@ -107,19 +136,64 @@ function validateSsccScan(input: ScanValidationInput): ScanValidationResult {
     }
   }
 
+  const defaultLines: ScanLineInput[] = pallet.items.map((i) => ({
+    sku: i.sku,
+    qty: i.qty,
+    lot: i.lot,
+    expiry: i.expiry,
+  }))
+
+  const lines =
+    input.confirm && input.lines && input.lines.length > 0
+      ? input.lines
+      : defaultLines
+
+  if (lines.some((l) => !l.sku || Number.isNaN(l.qty) || l.qty <= 0)) {
+    return {
+      result: 'BLOCK',
+      errorType: 'INVALID',
+      message: 'Invalid quantity on one or more pallet lines',
+      actionHint: 'Adjust quantity then confirm',
+      kind: 'SSCC',
+    }
+  }
+
+  if (!input.confirm) {
+    return {
+      result: 'OK',
+      message: `Pallet ${code} ready (${lines.length} SKUs) — adjust qty then confirm`,
+      actionHint: 'Confirm receive after checking quantities',
+      kind: 'SSCC',
+      apply: {
+        sscc: code,
+        lines,
+      },
+    }
+  }
+
+  const hasVariance = linesHaveVariance(input.asn, input.session, lines)
+  if (hasVariance && !input.varianceReason?.trim()) {
+    return {
+      result: 'BLOCK',
+      errorType: 'VARIANCE_REASON_REQUIRED',
+      message: 'Quantity does not match expected — select a reason',
+      actionHint: 'Pick a variance reason label',
+      kind: 'SSCC',
+      apply: {
+        sscc: code,
+        lines,
+      },
+    }
+  }
+
   return {
     result: 'OK',
-    message: `Pallet ${code} accepted (${pallet.items.length} SKUs)`,
+    message: `Pallet ${code} accepted (${lines.length} SKUs)`,
     actionHint: 'Continue scanning',
     kind: 'SSCC',
     apply: {
       sscc: code,
-      lines: pallet.items.map((i) => ({
-        sku: i.sku,
-        qty: i.qty,
-        lot: i.lot,
-        expiry: i.expiry,
-      })),
+      lines,
     },
   }
 }
@@ -148,7 +222,13 @@ function validateContainerScan(input: ScanValidationInput): ScanValidationResult
 
   const parts = code.split(':')
   const sku = parts[0]
-  const qty = parts.length > 1 ? Number(parts[1]) : 1
+  const parsedQty = parts.length > 1 ? Number(parts[1]) : undefined
+  const qty =
+    input.qty !== undefined
+      ? input.qty
+      : parsedQty !== undefined && !Number.isNaN(parsedQty)
+        ? parsedQty
+        : 1
   const lot = input.lot ?? parts[2]
   const expiry = input.expiry ?? parts[3]
 
@@ -156,7 +236,7 @@ function validateContainerScan(input: ScanValidationInput): ScanValidationResult
     return {
       result: 'BLOCK',
       errorType: 'INVALID',
-      message: 'Invalid container code. Use SKU or SKU:QTY[:LOT:EXPIRY]',
+      message: 'Invalid container code. Use SKU barcode',
       actionHint: 'Re-scan or enter manually',
       kind: 'CONTAINER',
     }
@@ -183,8 +263,12 @@ function validateContainerScan(input: ScanValidationInput): ScanValidationResult
       result: 'BLOCK',
       errorType: 'MISSING_LOT_EXPIRY',
       message: `SKU ${sku} requires lot & expiry`,
-      actionHint: 'Enter lot/expiry then re-scan',
+      actionHint: 'Enter lot/expiry then confirm',
       kind: 'SKU',
+      apply: {
+        containerCode: code,
+        lines: [{ sku, qty, lot, expiry }],
+      },
     }
   }
 
@@ -204,26 +288,52 @@ function validateContainerScan(input: ScanValidationInput): ScanValidationResult
     }
   }
 
-  const already = input.session.receivedLines
-    .filter((l) => l.sku === sku && !l.quarantine)
-    .reduce((s, l) => s + l.qty, 0)
-  const nextQty = already + qty
+  const variance = willCauseVariance(input.asn, input.session, sku, qty)
   const maxAllowed = line.expectedQty * (1 + OVER_RECEIPT_TOLERANCE)
 
-  if (nextQty > maxAllowed && !input.allowOverOverride) {
+  if (variance.next > maxAllowed && !input.allowOverOverride) {
     return {
       result: 'WARN',
       errorType: 'OVER_RECEIPT',
-      message: `Over-receipt for ${sku}: ${nextQty} > ${line.expectedQty} (+${OVER_RECEIPT_TOLERANCE * 100}% tol)`,
+      message: `Over-receipt for ${sku}: ${variance.next} > ${line.expectedQty} (+${OVER_RECEIPT_TOLERANCE * 100}% tol)`,
       actionHint: 'Need supervisor override or create OVER discrepancy',
       kind: 'SKU',
       apply: {
+        containerCode: code,
+        lines: [{ sku, qty, lot, expiry }],
         createDiscrepancy: {
           type: 'OVER',
           sku,
-          qty: nextQty - line.expectedQty,
+          qty: variance.next - line.expectedQty,
           note: 'Over tolerance',
         },
+      },
+    }
+  }
+
+  if (!input.confirm) {
+    return {
+      result: 'OK',
+      message: `${sku} ready — adjust qty then confirm`,
+      actionHint: 'Confirm receive after checking quantity',
+      kind: 'SKU',
+      apply: {
+        containerCode: code,
+        lines: [{ sku, qty, lot, expiry }],
+      },
+    }
+  }
+
+  if (variance.hasVariance && !input.varianceReason?.trim()) {
+    return {
+      result: 'BLOCK',
+      errorType: 'VARIANCE_REASON_REQUIRED',
+      message: 'Quantity does not match expected — select a reason',
+      actionHint: 'Pick a variance reason label',
+      kind: 'SKU',
+      apply: {
+        containerCode: code,
+        lines: [{ sku, qty, lot, expiry }],
       },
     }
   }

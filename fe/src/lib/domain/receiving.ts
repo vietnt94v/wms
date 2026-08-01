@@ -34,6 +34,61 @@ export type DiscrepancyType =
   | 'QC_FAIL'
   | 'UNKNOWN'
 
+export type ReceiptVarianceReasonId =
+  | 'SHORT_SHIPMENT'
+  | 'DAMAGED'
+  | 'LABEL_COUNT_ERROR'
+  | 'EXTRA_UNITS'
+  | 'WRONG_ITEM'
+  | 'OTHER'
+
+export interface ReceiptVarianceReason {
+  id: ReceiptVarianceReasonId
+  label: string
+  discrepancyType: DiscrepancyType | null
+}
+
+export const RECEIPT_VARIANCE_REASONS: ReceiptVarianceReason[] = [
+  {
+    id: 'SHORT_SHIPMENT',
+    label: 'Short shipment',
+    discrepancyType: 'SHORT',
+  },
+  {
+    id: 'DAMAGED',
+    label: 'Damaged / missing units',
+    discrepancyType: 'DAMAGED',
+  },
+  {
+    id: 'LABEL_COUNT_ERROR',
+    label: 'Label count error',
+    discrepancyType: 'SHORT',
+  },
+  {
+    id: 'EXTRA_UNITS',
+    label: 'Extra units shipped',
+    discrepancyType: 'OVER',
+  },
+  {
+    id: 'WRONG_ITEM',
+    label: 'Wrong item',
+    discrepancyType: 'WRONG_ITEM',
+  },
+  {
+    id: 'OTHER',
+    label: 'Other',
+    discrepancyType: null,
+  },
+]
+
+export interface VarianceCheck {
+  hasVariance: boolean
+  expected: number
+  current: number
+  next: number
+  gap: number
+}
+
 export type DiscrepancyResolution =
   | 'PENDING'
   | 'ACCEPT_VARIANCE'
@@ -233,4 +288,42 @@ export function pendingQcSkus(
   return receivedSkus(session).filter(
     (sku) => !getQcResultForSku(qcResults, session.id, sku),
   )
+}
+
+export function receivedQtyForSku(
+  session: ReceivingSession,
+  sku: string,
+): number {
+  return session.receivedLines
+    .filter((l) => l.sku === sku && !l.quarantine)
+    .reduce((sum, l) => sum + l.qty, 0)
+}
+
+export function willCauseVariance(
+  asn: ASN,
+  session: ReceivingSession,
+  sku: string,
+  qtyToAdd: number,
+): VarianceCheck {
+  const line = asn.lines.find((l) => l.sku === sku)
+  const expected = line?.expectedQty ?? 0
+  const current = receivedQtyForSku(session, sku)
+  const next = current + qtyToAdd
+  const gap = next - expected
+  return {
+    hasVariance: next !== expected,
+    expected,
+    current,
+    next,
+    gap,
+  }
+}
+
+export function resolveVarianceDiscrepancyType(
+  reasonId: ReceiptVarianceReasonId | undefined,
+  gap: number,
+): DiscrepancyType {
+  const reason = RECEIPT_VARIANCE_REASONS.find((r) => r.id === reasonId)
+  if (reason?.discrepancyType) return reason.discrepancyType
+  return gap > 0 ? 'OVER' : 'SHORT'
 }
