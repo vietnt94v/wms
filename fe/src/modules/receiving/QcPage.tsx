@@ -134,7 +134,7 @@ export function QcPage() {
         <Heading size="md" mb="3">
           QC history
         </Heading>
-        <Table.Root size="sm">
+        <Table.Root size="sm" interactive>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>Session</Table.ColumnHeader>

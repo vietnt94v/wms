@@ -35,7 +35,7 @@ export function DiscrepanciesPage() {
       </Text>
 
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
-        <Table.Root size="sm">
+        <Table.Root size="sm" interactive>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>Type</Table.ColumnHeader>
@@ -58,6 +58,8 @@ export function DiscrepanciesPage() {
                       : 'bg.error'
                     : undefined
                 }
+                transition="background-color 0.15s ease"
+                _hover={{ bg: 'bg.emphasized' }}
               >
                 <Table.Cell>
                   <StatusBadge status={d.type === 'SHORT' || d.type === 'OVER' ? 'QC' : 'REJECTED'} />{' '}

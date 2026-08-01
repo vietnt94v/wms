@@ -41,7 +41,7 @@ export function PutawayTasksPage() {
       </HStackLike>
 
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
-        <Table.Root size="sm">
+        <Table.Root size="sm" interactive>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>Task</Table.ColumnHeader>

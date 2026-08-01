@@ -127,7 +127,7 @@ export function ScanWorkspace({ session, asn }: Props) {
         <Heading size="md" mb="3">
           Expected vs received
         </Heading>
-        <Table.Root size="sm">
+        <Table.Root size="sm" interactive>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>SKU</Table.ColumnHeader>
@@ -156,7 +156,7 @@ export function ScanWorkspace({ session, asn }: Props) {
         {exceptions.length === 0 ? (
           <Text color="fg.muted">No scan exceptions</Text>
         ) : (
-          <Table.Root size="sm">
+          <Table.Root size="sm" interactive>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader>Code</Table.ColumnHeader>

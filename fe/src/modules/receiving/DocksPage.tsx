@@ -11,7 +11,8 @@ import {
   Table,
   Text,
 } from '@chakra-ui/react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { AppLink } from '@/components/ui/app-link'
 import { toaster } from '@/components/ui/toaster'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
@@ -98,9 +99,9 @@ export function DocksPage() {
                 <Stack mt="2" gap="1">
                   <Text fontSize="sm">
                     Session:{' '}
-                    <Link to={`/receiving/sessions/${session.id}`}>
+                    <AppLink to={`/receiving/sessions/${session.id}`}>
                       {session.id.slice(0, 12)}…
-                    </Link>
+                    </AppLink>
                   </Text>
                   <StatusBadge status={session.status} />
                   {(session.asnId === 'UNKNOWN' ||
@@ -269,7 +270,7 @@ export function DocksPage() {
         <Heading size="md" mb="3">
           Appointments
         </Heading>
-        <Table.Root size="sm">
+        <Table.Root size="sm" interactive>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>ID</Table.ColumnHeader>

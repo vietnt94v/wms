@@ -1,10 +1,13 @@
 import { Box, Heading, HStack, SimpleGrid, Stack, Table, Text } from '@chakra-ui/react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { AppLink } from '@/components/ui/app-link'
+import { ClickableTableRow } from '@/components/ui/clickable-table-row'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function ReceivingDashboard() {
+  const navigate = useNavigate()
   const asns = useReceivingStore((s) => s.asns)
   const docks = useReceivingStore((s) => s.docks)
   const sessions = useReceivingStore((s) => s.sessions)
@@ -33,7 +36,7 @@ export function ReceivingDashboard() {
           <Heading size="md" mb="3">
             ASN inbox
           </Heading>
-          <Table.Root size="sm">
+          <Table.Root size="sm" interactive>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader>ASN</Table.ColumnHeader>
@@ -44,16 +47,19 @@ export function ReceivingDashboard() {
             </Table.Header>
             <Table.Body>
               {asns.map((asn) => (
-                <Table.Row key={asn.id}>
+                <ClickableTableRow
+                  key={asn.id}
+                  onActivate={() => navigate(`/receiving/asn/${asn.id}`)}
+                >
                   <Table.Cell>
-                    <Link to={`/receiving/asn/${asn.id}`}>{asn.id}</Link>
+                    <AppLink to={`/receiving/asn/${asn.id}`}>{asn.id}</AppLink>
                   </Table.Cell>
                   <Table.Cell>{asn.type}</Table.Cell>
                   <Table.Cell>
                     <StatusBadge status={asn.status} />
                   </Table.Cell>
                   <Table.Cell>{asn.plateNo}</Table.Cell>
-                </Table.Row>
+                </ClickableTableRow>
               ))}
             </Table.Body>
           </Table.Root>
@@ -79,7 +85,7 @@ export function ReceivingDashboard() {
             ))}
           </HStack>
           <Text mt="3" fontSize="sm">
-            <Link to="/receiving/docks">Open dock scheduling →</Link>
+            <AppLink to="/receiving/docks">Open dock scheduling →</AppLink>
           </Text>
         </Box>
       </SimpleGrid>

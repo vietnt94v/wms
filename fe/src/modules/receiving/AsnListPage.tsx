@@ -1,10 +1,13 @@
 import { Box, Heading, Stack, Table, Text } from '@chakra-ui/react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { AppLink } from '@/components/ui/app-link'
+import { ClickableTableRow } from '@/components/ui/clickable-table-row'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function AsnListPage() {
+  const navigate = useNavigate()
   const asns = useReceivingStore((s) => s.asns)
   const purchaseOrders = useReceivingStore((s) => s.purchaseOrders)
 
@@ -17,7 +20,7 @@ export function AsnListPage() {
         mock).
       </Text>
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
-        <Table.Root size="sm">
+        <Table.Root size="sm" interactive>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>ASN</Table.ColumnHeader>
@@ -32,9 +35,12 @@ export function AsnListPage() {
             {asns.map((asn) => {
               const po = purchaseOrders.find((p) => p.id === asn.poId)
               return (
-                <Table.Row key={asn.id}>
+                <ClickableTableRow
+                  key={asn.id}
+                  onActivate={() => navigate(`/receiving/asn/${asn.id}`)}
+                >
                   <Table.Cell>
-                    <Link to={`/receiving/asn/${asn.id}`}>{asn.id}</Link>
+                    <AppLink to={`/receiving/asn/${asn.id}`}>{asn.id}</AppLink>
                   </Table.Cell>
                   <Table.Cell>{asn.poId}</Table.Cell>
                   <Table.Cell>{po?.lines.length ?? 0}</Table.Cell>
@@ -45,7 +51,7 @@ export function AsnListPage() {
                   <Table.Cell>
                     <StatusBadge status={asn.status} />
                   </Table.Cell>
-                </Table.Row>
+                </ClickableTableRow>
               )
             })}
           </Table.Body>

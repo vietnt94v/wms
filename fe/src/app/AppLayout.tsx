@@ -28,21 +28,28 @@ export function AppLayout() {
         </Heading>
         <Stack gap="1">
           {navItems.map((item) => (
-            <NavLink
+            <Box
               key={item.to}
-              to={item.to}
-              style={({ isActive }) => ({
-                display: 'block',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                background: isActive ? '#2D3748' : 'transparent',
-                color: 'white',
-                textDecoration: 'none',
-                fontSize: '14px',
-              })}
+              asChild
+              display="block"
+              px="3"
+              py="2.5"
+              borderRadius="md"
+              fontSize="sm"
+              color="white"
+              textDecoration="none"
+              cursor="pointer"
+              transition="background-color 0.15s ease"
+              _hover={{ bg: 'whiteAlpha.200' }}
+              css={{ '&.active': { bg: 'gray.700' } }}
             >
-              {item.label}
-            </NavLink>
+              <NavLink
+                to={item.to}
+                className={({ isActive }) => (isActive ? 'active' : undefined)}
+              >
+                {item.label}
+              </NavLink>
+            </Box>
           ))}
         </Stack>
       </Box>

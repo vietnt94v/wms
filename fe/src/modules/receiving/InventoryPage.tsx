@@ -15,7 +15,7 @@ export function InventoryPage() {
         separately.
       </Text>
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
-        <Table.Root size="sm">
+        <Table.Root size="sm" interactive>
           <Table.Header>
             <Table.Row>
               <Table.ColumnHeader>SKU</Table.ColumnHeader>

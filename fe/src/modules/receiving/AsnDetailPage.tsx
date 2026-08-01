@@ -1,5 +1,6 @@
 import { Box, Heading, SimpleGrid, Stack, Table, Text } from '@chakra-ui/react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { AppLink } from '@/components/ui/app-link'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
@@ -43,7 +44,7 @@ export function AsnDetailPage() {
           <Heading size="md" mb="3">
             PO ↔ ASN lines
           </Heading>
-          <Table.Root size="sm">
+          <Table.Root size="sm" interactive>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader>SKU</Table.ColumnHeader>
@@ -75,7 +76,7 @@ export function AsnDetailPage() {
           {asn.pallets.length === 0 ? (
             <Text color="fg.muted">Container mode — no SSCC list</Text>
           ) : (
-            <Table.Root size="sm">
+            <Table.Root size="sm" interactive>
               <Table.Header>
                 <Table.Row>
                   <Table.ColumnHeader>SSCC</Table.ColumnHeader>
@@ -106,7 +107,7 @@ export function AsnDetailPage() {
       </SimpleGrid>
 
       <Text>
-        <Link to="/receiving/docks">Schedule dock / gate-in →</Link>
+        <AppLink to="/receiving/docks">Schedule dock / gate-in →</AppLink>
       </Text>
       <StatusBadge status={asn.status} />
     </Stack>

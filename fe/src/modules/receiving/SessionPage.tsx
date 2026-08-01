@@ -6,7 +6,8 @@ import {
   Stack,
   Text,
 } from '@chakra-ui/react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
+import { AppLink } from '@/components/ui/app-link'
 import { toaster } from '@/components/ui/toaster'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
@@ -137,9 +138,9 @@ export function SessionPage() {
         {['QC', 'DISCREPANCY', 'PUTAWAY'].includes(session.status) && (
           <Text fontSize="sm">
             Continue at{' '}
-            <Link to="/receiving/qc">QC</Link> /{' '}
-            <Link to="/receiving/discrepancies">Discrepancies</Link> /{' '}
-            <Link to="/receiving/putaway-tasks">Putaway</Link>
+            <AppLink to="/receiving/qc">QC</AppLink> /{' '}
+            <AppLink to="/receiving/discrepancies">Discrepancies</AppLink> /{' '}
+            <AppLink to="/receiving/putaway-tasks">Putaway</AppLink>
           </Text>
         )}
       </HStack>
