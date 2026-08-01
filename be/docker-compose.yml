@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wms-postgres
+    restart: unless-stopped
+    ports:
+      - '${POSTGRES_PORT:-5434}:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-wms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wms}
+      POSTGRES_DB: ${POSTGRES_DB:-wms}
+    volumes:
+      - wms_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  liquibase:
+    image: liquibase/liquibase:4.31
+    container_name: wms-liquibase
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /liquibase/changelog
+    volumes:
+      - ./db:/liquibase/changelog
+    command:
+      - --defaultsFile=liquibase.properties
+      - --url=jdbc:postgresql://postgres:5432/${POSTGRES_DB:-wms}
+      - --username=${POSTGRES_USER:-wms}
+      - --password=${POSTGRES_PASSWORD:-wms}
+      - update
+    profiles:
+      - migrate
+
+volumes:
+  wms_pg_data:
