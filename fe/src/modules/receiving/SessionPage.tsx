@@ -1,0 +1,164 @@
+import {
+  Box,
+  Button,
+  Heading,
+  HStack,
+  Stack,
+  Text,
+} from '@chakra-ui/react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { toaster } from '@/components/ui/toaster'
+import { useReceivingStore } from '@/store/receivingStore'
+import { ReceivingNav } from './ReceivingNav'
+import { ScanWorkspace } from './ScanWorkspace'
+import { StatusBadge } from './StatusBadge'
+
+export function SessionPage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const session = useReceivingStore((s) => s.sessions.find((x) => x.id === id))
+  const asn = useReceivingStore((s) =>
+    session ? s.asns.find((a) => a.id === session.asnId) : undefined,
+  )
+  const startUnload = useReceivingStore((s) => s.startUnload)
+  const startReceiving = useReceivingStore((s) => s.startReceiving)
+  const finishReceiving = useReceivingStore((s) => s.finishReceiving)
+  const rejectArrival = useReceivingStore((s) => s.rejectArrival)
+  const approveUnknownArrival = useReceivingStore((s) => s.approveUnknownArrival)
+
+  if (!session) {
+    return (
+      <Stack>
+        <ReceivingNav />
+        <Text>Session not found</Text>
+      </Stack>
+    )
+  }
+
+  const canOperate =
+    !session.unknownArrival || !!session.supervisorApproved
+
+  return (
+    <Stack gap="4">
+      <Heading size="xl">Receiving session</Heading>
+      <ReceivingNav />
+
+      <HStack gap="4" flexWrap="wrap">
+        <Meta label="Session" value={session.id} />
+        <Meta label="ASN" value={session.asnId} />
+        <Meta label="Dock" value={session.dockId} />
+        <Meta label="Mode" value={session.mode} />
+        <Meta label="Plate entered" value={session.plateNoEntered ?? '-'} />
+        <StatusBadge status={session.status} />
+      </HStack>
+
+      {session.unknownArrival && !session.supervisorApproved && (
+        <Box bg="bg.error" borderWidth="1px" borderColor="red.emphasized" p="4" borderRadius="lg">
+          <Text fontWeight="bold" color="fg.error">
+            Unscheduled / Unknown arrival
+          </Text>
+          <Text mt="1" fontSize="sm">
+            Truck plate does not match appointment/ASN, or ASN is unknown. Reject
+            delivery or request supervisor exception.
+          </Text>
+          <HStack mt="3">
+            <Button
+              colorPalette="red"
+              onClick={() => {
+                rejectArrival(session.id, 'Rejected unknown truck')
+                toaster.create({ title: 'Arrival rejected', type: 'error' })
+                navigate('/receiving/docks')
+              }}
+            >
+              Reject truck
+            </Button>
+            <Button
+              colorPalette="orange"
+              onClick={() => {
+                approveUnknownArrival(session.id)
+                toaster.create({
+                  title: 'Exception approved',
+                  type: 'success',
+                })
+              }}
+            >
+              Supervisor approve exception
+            </Button>
+          </HStack>
+        </Box>
+      )}
+
+      <HStack gap="2" flexWrap="wrap">
+        {session.status === 'GATE_IN' && canOperate && (
+          <Button
+            onClick={() => {
+              startUnload(session.id)
+              toaster.create({ title: 'Unloading', type: 'success' })
+            }}
+          >
+            Start unloading
+          </Button>
+        )}
+        {session.status === 'UNLOADING' && (
+          <Button
+            colorPalette="blue"
+            onClick={() => {
+              startReceiving(session.id)
+              toaster.create({ title: 'Receiving started', type: 'success' })
+            }}
+          >
+            Start check-in / scan
+          </Button>
+        )}
+        {session.status === 'RECEIVING' && (
+          <Button
+            colorPalette="green"
+            onClick={() => {
+              finishReceiving(session.id)
+              toaster.create({
+                title: 'Moved to QC',
+                description: 'Short discrepancies auto-created if any',
+                type: 'success',
+              })
+              navigate('/receiving/qc')
+            }}
+          >
+            Finish receiving → QC
+          </Button>
+        )}
+        {['QC', 'DISCREPANCY', 'PUTAWAY'].includes(session.status) && (
+          <Text fontSize="sm">
+            Continue at{' '}
+            <Link to="/receiving/qc">QC</Link> /{' '}
+            <Link to="/receiving/discrepancies">Discrepancies</Link> /{' '}
+            <Link to="/receiving/putaway-tasks">Putaway</Link>
+          </Text>
+        )}
+      </HStack>
+
+      {session.status === 'RECEIVING' && asn && (
+        <ScanWorkspace session={session} asn={asn} />
+      )}
+
+      {!asn && session.asnId === 'UNKNOWN' && (
+        <Text color="fg.error">
+          No ASN linked — scanning is blocked until arrival is rejected or
+          linked by supervisor process.
+        </Text>
+      )}
+    </Stack>
+  )
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <Box bg="bg.panel" px="3" py="2" borderWidth="1px" borderRadius="md">
+      <Text fontSize="xs" color="fg.muted">
+        {label}
+      </Text>
+      <Text fontSize="sm" fontWeight="medium">
+        {value}
+      </Text>
+    </Box>
+  )
+}
