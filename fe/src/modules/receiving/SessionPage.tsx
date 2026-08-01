@@ -9,6 +9,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppLink } from '@/components/ui/app-link'
 import { toaster } from '@/components/ui/toaster'
+import { canFinishReceiving } from '@/lib/domain/receiving'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
 import { ScanWorkspace } from './ScanWorkspace'
@@ -41,6 +42,8 @@ export function SessionPage() {
     !!session.unknownArrival && !session.supervisorApproved
   const canOperate = hasAsn && !needsSupervisor
   const showRejectUnknown = !hasAsn || needsSupervisor
+  const finishGate =
+    session.status === 'RECEIVING' ? canFinishReceiving(session) : null
 
   return (
     <Stack gap="4">
@@ -122,11 +125,20 @@ export function SessionPage() {
         {session.status === 'RECEIVING' && (
           <Button
             colorPalette="green"
+            disabled={!finishGate?.ok}
             onClick={() => {
-              finishReceiving(session.id)
+              const result = finishReceiving(session.id)
+              if (!result.ok) {
+                toaster.create({
+                  title: 'Cannot close receiving',
+                  description: result.message,
+                  type: 'error',
+                })
+                return
+              }
               toaster.create({
                 title: 'Moved to QC',
-                description: 'Short discrepancies auto-created if any',
+                description: result.message,
                 type: 'success',
               })
               navigate('/receiving/qc')
@@ -144,6 +156,12 @@ export function SessionPage() {
           </Text>
         )}
       </HStack>
+
+      {session.status === 'RECEIVING' && finishGate && !finishGate.ok && (
+        <Text fontSize="sm" color="fg.muted">
+          {finishGate.message}
+        </Text>
+      )}
 
       {session.status === 'RECEIVING' && asn && (
         <ScanWorkspace session={session} asn={asn} />

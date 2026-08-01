@@ -194,3 +194,43 @@ export interface InventoryRecord {
 export function uid(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 8)}-${Date.now().toString(36)}`
 }
+
+export function totalReceivedQty(session: ReceivingSession): number {
+  return session.receivedLines.reduce((sum, line) => sum + line.qty, 0)
+}
+
+export function canFinishReceiving(session: ReceivingSession): {
+  ok: boolean
+  message: string
+} {
+  if (totalReceivedQty(session) === 0) {
+    const scanHint =
+      session.mode === 'SSCC'
+        ? 'Scan at least one SSCC before closing receiving.'
+        : 'Scan at least one container or SKU before closing receiving.'
+    return { ok: false, message: scanHint }
+  }
+
+  return { ok: true, message: 'Ready to close receiving' }
+}
+
+export function getQcResultForSku(
+  qcResults: QCResult[],
+  sessionId: string,
+  sku: string,
+): QCResult | undefined {
+  return qcResults.find((q) => q.sessionId === sessionId && q.sku === sku)
+}
+
+export function receivedSkus(session: ReceivingSession): string[] {
+  return [...new Set(session.receivedLines.map((l) => l.sku))]
+}
+
+export function pendingQcSkus(
+  session: ReceivingSession,
+  qcResults: QCResult[],
+): string[] {
+  return receivedSkus(session).filter(
+    (sku) => !getQcResultForSku(qcResults, session.id, sku),
+  )
+}

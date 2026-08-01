@@ -12,6 +12,11 @@ import {
   Textarea,
 } from '@chakra-ui/react'
 import { toaster } from '@/components/ui/toaster'
+import {
+  getQcResultForSku,
+  pendingQcSkus,
+  receivedSkus,
+} from '@/lib/domain/receiving'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
@@ -30,31 +35,49 @@ export function QcPage() {
 
   const skus = useMemo(() => {
     if (!session) return []
-    return [...new Set(session.receivedLines.map((l) => l.sku))]
+    return receivedSkus(session)
   }, [session])
+
+  const pendingSkus = useMemo(() => {
+    if (!session) return []
+    return pendingQcSkus(session, qcResults)
+  }, [session, qcResults])
 
   const [sku, setSku] = useState('')
   const [sampleQty, setSampleQty] = useState('1')
   const [reason, setReason] = useState('')
 
-  const activeSku = sku || skus[0] || ''
+  const activeSku = sku || pendingSkus[0] || skus[0] || ''
+  const existingQc =
+    session && activeSku
+      ? getQcResultForSku(qcResults, session.id, activeSku)
+      : undefined
+  const skuAlreadyQc = !!existingQc
 
   const handleQc = (pass: boolean) => {
     if (!sessionId || !activeSku) return
-    submitQc({
+    const result = submitQc({
       sessionId,
       sku: activeSku,
       sampleQty: Number(sampleQty) || 1,
       pass,
       reason: pass ? undefined : reason || 'QC failed',
     })
+    if (!result.ok) {
+      toaster.create({
+        title: 'Cannot record QC',
+        description: result.message,
+        type: 'error',
+      })
+      return
+    }
     toaster.create({
       title: pass ? 'QC passed' : 'QC failed → Quarantine',
-      description: pass
-        ? `${activeSku} accepted`
-        : `${activeSku} moved to quarantine / discrepancy`,
+      description: result.message,
       type: pass ? 'success' : 'error',
     })
+    setSku('')
+    setReason('')
   }
 
   return (
@@ -62,7 +85,8 @@ export function QcPage() {
       <BackToMenuButton />
       <Heading size="xl">Quality Check</Heading>
       <Text color="fg.muted">
-        Fail → quarantine stock (not available), auto QC_FAIL discrepancy.
+        One QC result per SKU per session. Fail → quarantine stock (not
+        available), auto QC_FAIL discrepancy.
       </Text>
 
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
@@ -87,11 +111,15 @@ export function QcPage() {
               value={activeSku}
               onChange={(e) => setSku(e.target.value)}
             >
-              {skus.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
+              {skus.map((s) => {
+                const done = getQcResultForSku(qcResults, sessionId, s)
+                return (
+                  <option key={s} value={s}>
+                    {s}
+                    {done ? (done.pass ? ' — QC passed' : ' — QC failed') : ' — pending'}
+                  </option>
+                )
+              })}
             </NativeSelect.Field>
           </NativeSelect.Root>
           <Input
@@ -99,22 +127,45 @@ export function QcPage() {
             value={sampleQty}
             onChange={(e) => setSampleQty(e.target.value)}
             placeholder="Sample qty"
+            disabled={skuAlreadyQc}
           />
           <Textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Fail reason"
+            disabled={skuAlreadyQc}
           />
+          {skuAlreadyQc && existingQc && (
+            <Text fontSize="sm" color="fg.muted">
+              QC already recorded for {activeSku} (
+              {existingQc.pass ? 'passed' : 'failed'}). Select another pending
+              SKU.
+            </Text>
+          )}
+          {session && pendingSkus.length > 0 && !skuAlreadyQc && (
+            <Text fontSize="sm" color="fg.muted">
+              {pendingSkus.length} SKU(s) pending QC
+            </Text>
+          )}
           <HStack>
-            <Button colorPalette="green" onClick={() => handleQc(true)}>
+            <Button
+              colorPalette="green"
+              disabled={!activeSku || skuAlreadyQc}
+              onClick={() => handleQc(true)}
+            >
               Pass
             </Button>
-            <Button colorPalette="red" onClick={() => handleQc(false)}>
+            <Button
+              colorPalette="red"
+              disabled={!activeSku || skuAlreadyQc}
+              onClick={() => handleQc(false)}
+            >
               Fail → Quarantine
             </Button>
             {session && (
               <Button
                 variant="outline"
+                disabled={pendingSkus.length > 0}
                 onClick={() => {
                   generatePutawayTasks(session.id)
                   toaster.create({
@@ -127,6 +178,11 @@ export function QcPage() {
               </Button>
             )}
           </HStack>
+          {session && pendingSkus.length > 0 && (
+            <Text fontSize="sm" color="fg.muted">
+              Complete QC for all SKUs before generating putaway tasks.
+            </Text>
+          )}
         </Stack>
       </Box>
 

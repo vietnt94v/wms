@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import {
+  canFinishReceiving,
+  getQcResultForSku,
   uid,
   type ASN,
   type Appointment,
@@ -68,14 +70,14 @@ interface ReceivingState {
     allowOverOverride?: boolean
   }) => ScanEvent
 
-  finishReceiving: (sessionId: string) => void
+  finishReceiving: (sessionId: string) => { ok: boolean; message: string }
   submitQc: (input: {
     sessionId: string
     sku: string
     sampleQty: number
     pass: boolean
     reason?: string
-  }) => void
+  }) => { ok: boolean; message: string }
   resolveDiscrepancy: (
     id: string,
     resolution: DiscrepancyResolution,
@@ -504,9 +506,12 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
   finishReceiving: (sessionId) => {
     const state = get()
     const session = state.sessions.find((s) => s.id === sessionId)
-    if (!session) return
+    if (!session) return { ok: false, message: 'Session not found' }
     const asn = state.asns.find((a) => a.id === session.asnId)
-    if (!asn) return
+    if (!asn) return { ok: false, message: 'ASN not found' }
+
+    const gate = canFinishReceiving(session)
+    if (!gate.ok) return gate
 
     const shortDisc: Discrepancy[] = []
     for (const line of asn.lines) {
@@ -536,9 +541,28 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
       ),
       discrepancies: [...s.discrepancies, ...shortDisc],
     }))
+
+    return {
+      ok: true,
+      message:
+        shortDisc.length > 0
+          ? 'Receiving closed with short variance'
+          : 'Receiving closed',
+    }
   },
 
   submitQc: ({ sessionId, sku, sampleQty, pass, reason }) => {
+    const state = get()
+    const session = state.sessions.find((x) => x.id === sessionId)
+    if (!session) return { ok: false, message: 'Session not found' }
+
+    if (getQcResultForSku(state.qcResults, sessionId, sku)) {
+      return {
+        ok: false,
+        message: `QC already recorded for ${sku} on this session`,
+      }
+    }
+
     const qc: QCResult = {
       id: uid('QC'),
       sessionId,
@@ -549,10 +573,10 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
     }
 
     set((s) => {
-      const session = s.sessions.find((x) => x.id === sessionId)
-      if (!session) return s
+      const currentSession = s.sessions.find((x) => x.id === sessionId)
+      if (!currentSession) return s
 
-      let receivedLines = session.receivedLines
+      let receivedLines = currentSession.receivedLines
       let discrepancies = s.discrepancies
       let inventory = s.inventory
 
@@ -565,14 +589,14 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
           {
             id: uid('DSC'),
             sessionId,
-            asnId: session.asnId,
-            type: 'QC_FAIL',
+            asnId: currentSession.asnId,
+            type: 'QC_FAIL' as const,
             sku,
             qty: receivedLines
               .filter((l) => l.sku === sku)
               .reduce((sum, l) => sum + l.qty, 0),
             note: reason ?? 'QC failed',
-            resolution: 'QUARANTINE',
+            resolution: 'QUARANTINE' as const,
           },
         ]
         inventory = inventory.map((inv) => {
@@ -597,12 +621,17 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
             : x,
         ),
         asns: s.asns.map((a) =>
-          a.id === session.asnId ? { ...a, status: nextStatus } : a,
+          a.id === currentSession.asnId ? { ...a, status: nextStatus } : a,
         ),
         discrepancies,
         inventory,
       }
     })
+
+    return {
+      ok: true,
+      message: pass ? `${sku} accepted` : `${sku} moved to quarantine`,
+    }
   },
 
   resolveDiscrepancy: (id, resolution, note) => {
