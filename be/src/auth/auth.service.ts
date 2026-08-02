@@ -53,7 +53,11 @@ export class AuthService {
       relations: { user: { roles: true } },
     });
 
-    if (!stored || stored.revokedAt || stored.expiresAt.getTime() <= Date.now()) {
+    if (
+      !stored ||
+      stored.revokedAt ||
+      stored.expiresAt.getTime() <= Date.now()
+    ) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -92,10 +96,10 @@ export class AuthService {
 
   private async issueTokens(user: User): Promise<AuthTokensResponse> {
     const authUser = this.toAuthUser(user);
-    const accessExpiresIn = this.configService.get(
+    const accessExpiresIn = this.configService.get<string>(
       'JWT_ACCESS_EXPIRES_IN',
       '15m',
-    ) as number | `${number}${'s' | 'm' | 'h' | 'd'}`;
+    );
 
     const accessToken = await this.jwtService.signAsync(
       {
@@ -119,7 +123,9 @@ export class AuthService {
       this.refreshTokensRepository.create({
         userId: user.id,
         tokenHash: this.hashToken(refreshToken),
-        expiresAt: new Date(Date.now() + this.parseDurationMs(refreshExpiresIn)),
+        expiresAt: new Date(
+          Date.now() + this.parseDurationMs(refreshExpiresIn),
+        ),
       }),
     );
 

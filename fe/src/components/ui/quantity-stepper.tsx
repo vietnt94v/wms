@@ -19,7 +19,7 @@ export function QuantityStepper({
     <HStack gap="1" maxW="220px">
       <Button
         size="sm"
-        variant="outline"
+        colorPalette="blue"
         disabled={disabled || value <= min}
         onClick={() => onChange(clamp(value - 1))}
         aria-label="Decrease quantity"
@@ -44,7 +44,7 @@ export function QuantityStepper({
       />
       <Button
         size="sm"
-        variant="outline"
+        colorPalette="blue"
         disabled={disabled}
         onClick={() => onChange(clamp(value + 1))}
         aria-label="Increase quantity"

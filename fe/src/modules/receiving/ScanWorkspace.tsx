@@ -12,6 +12,7 @@ import {
   Text,
 } from '@chakra-ui/react'
 import { QuantityStepper } from '@/components/ui/quantity-stepper'
+import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
 import { toaster } from '@/components/ui/toaster'
 import { VarianceReasonPicker } from '@/components/ui/variance-reason-picker'
 import {
@@ -47,6 +48,14 @@ export function ScanWorkspace({ session, asn }: Props) {
     ReceiptVarianceReasonId | ''
   >('')
   const [otherReasonText, setOtherReasonText] = useState('')
+  const [operatorAlert, setOperatorAlert] = useState<{
+    title: string
+    description: string
+  } | null>(null)
+
+  const showOperatorAlert = (title: string, description: string) => {
+    setOperatorAlert({ title, description })
+  }
 
   const progress = useMemo(() => {
     const expected = asn.lines.reduce((s, l) => s + l.expectedQty, 0)
@@ -134,11 +143,10 @@ export function ScanWorkspace({ session, asn }: Props) {
       preview.result === 'BLOCK' &&
       preview.errorType !== 'MISSING_LOT_EXPIRY'
     ) {
-      toaster.create({
-        title: preview.errorType ?? preview.result,
-        description: `${preview.message}${preview.actionHint ? ` — ${preview.actionHint}` : ''}`,
-        type: 'error',
-      })
+      showOperatorAlert(
+        preview.errorType ?? preview.result,
+        `${preview.message}${preview.actionHint ? ` — ${preview.actionHint}` : ''}`,
+      )
       if (preview.errorType === 'UNEXPECTED_ITEM' || preview.errorType === 'UNKNOWN_PALLET') {
         void scan({
           sessionId: session.id,
@@ -151,21 +159,19 @@ export function ScanWorkspace({ session, asn }: Props) {
     }
 
     if (preview.result === 'WARN' && preview.errorType === 'DUPLICATE') {
-      toaster.create({
-        title: preview.errorType,
-        description: `${preview.message}${preview.actionHint ? ` — ${preview.actionHint}` : ''}`,
-        type: 'warning',
-      })
+      showOperatorAlert(
+        preview.errorType,
+        `${preview.message}${preview.actionHint ? ` — ${preview.actionHint}` : ''}`,
+      )
       return
     }
 
     const lines = preview.apply?.lines
     if (!lines || lines.length === 0) {
-      toaster.create({
-        title: preview.errorType ?? 'Cannot resolve',
-        description: preview.message,
-        type: 'error',
-      })
+      showOperatorAlert(
+        preview.errorType ?? 'Cannot resolve',
+        preview.message,
+      )
       return
     }
 
@@ -200,24 +206,21 @@ export function ScanWorkspace({ session, asn }: Props) {
         allowOverOverride: allowOver,
       })
 
-      const type =
-        event.result === 'OK'
-          ? 'success'
-          : event.result === 'WARN'
-            ? 'warning'
-            : 'error'
-
-      toaster.create({
-        title: event.errorType ?? event.result,
-        description: `${event.message}${event.actionHint ? ` — ${event.actionHint}` : ''}`,
-        type,
-      })
-
       if (event.result === 'OK') {
+        toaster.create({
+          title: event.errorType ?? event.result,
+          description: `${event.message}${event.actionHint ? ` — ${event.actionHint}` : ''}`,
+          type: 'success',
+        })
         resetPending()
         setLot('')
         setExpiry('')
         setAllowOver(false)
+      } else {
+        showOperatorAlert(
+          event.errorType ?? event.result,
+          `${event.message}${event.actionHint ? ` — ${event.actionHint}` : ''}`,
+        )
       }
     } catch (err) {
       const raw = axios.isAxiosError(err)
@@ -230,16 +233,18 @@ export function ScanWorkspace({ session, asn }: Props) {
           : err instanceof Error
             ? err.message
             : 'Request failed — check network or try again'
-      toaster.create({
-        title: 'Scan failed',
-        description: message,
-        type: 'error',
-      })
+      showOperatorAlert('Scan failed', message)
     }
   }
 
   return (
     <Stack gap="4">
+      <OperatorAlertDialog
+        open={!!operatorAlert}
+        title={operatorAlert?.title ?? ''}
+        description={operatorAlert?.description ?? ''}
+        onClose={() => setOperatorAlert(null)}
+      />
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
         <HStack justify="space-between" mb="3">
           <Heading size="md">

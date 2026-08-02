@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { findSsccOnOtherAsn, validateScan } from './domain/scan';
 import {
   canFinishReceiving,
@@ -90,9 +90,9 @@ export class ReceivingService {
   ) {}
 
   listSuppliers() {
-    return this.suppliersRepo.find({ order: { id: 'ASC' } }).then((rows) =>
-      rows.map((s) => ({ id: s.id, name: s.name })),
-    );
+    return this.suppliersRepo
+      .find({ order: { id: 'ASC' } })
+      .then((rows) => rows.map((s) => ({ id: s.id, name: s.name })));
   }
 
   listProducts(): Promise<ProductDto[]> {
@@ -206,9 +206,11 @@ export class ReceivingService {
   }
 
   listDocks() {
-    return this.docksRepo.find({ order: { id: 'ASC' } }).then((rows) =>
-      rows.map((d) => ({ id: d.id, name: d.name, status: d.status })),
-    );
+    return this.docksRepo
+      .find({ order: { id: 'ASC' } })
+      .then((rows) =>
+        rows.map((d) => ({ id: d.id, name: d.name, status: d.status })),
+      );
   }
 
   listAppointments() {
@@ -319,9 +321,7 @@ export class ReceivingService {
         relations: { lines: true, pallets: { items: true } },
       });
       const plate = dto.plateNo.trim().toUpperCase();
-      const byPlate = allAsns.find(
-        (a) => a.plateNo.toUpperCase() === plate,
-      );
+      const byPlate = allAsns.find((a) => a.plateNo.toUpperCase() === plate);
       if (byPlate) {
         asn = byPlate;
       } else {
@@ -372,9 +372,9 @@ export class ReceivingService {
         ReceivingSession,
         manager.create(ReceivingSession, {
           id: sessionId,
-          asnId: asn!.id,
+          asnId: asn.id,
           dockId: dto.dockId,
-          mode: asn!.type,
+          mode: asn.type,
           status: 'GATE_IN',
           plateNoEntered: dto.plateNo,
           unknownArrival,
@@ -382,7 +382,7 @@ export class ReceivingService {
         }),
       );
       await manager.update(Dock, { id: dto.dockId }, { status: 'OCCUPIED' });
-      await manager.update(Asn, { id: asn!.id }, { status: 'GATE_IN' });
+      await manager.update(Asn, { id: asn.id }, { status: 'GATE_IN' });
       if (appointment) {
         await manager.update(
           Appointment,
@@ -474,11 +474,7 @@ export class ReceivingService {
         { id: sessionId },
         { status: 'UNLOADING' },
       );
-      await manager.update(
-        Asn,
-        { id: session.asnId },
-        { status: 'UNLOADING' },
-      );
+      await manager.update(Asn, { id: session.asnId }, { status: 'UNLOADING' });
     });
     return { ok: true as const };
   }
@@ -686,7 +682,9 @@ export class ReceivingService {
             ? asn.pallets.find((p) => p.sscc === validation.apply!.sscc)
             : undefined;
         for (const line of validation.apply.lines) {
-          const manifestQty = pallet?.items.find((i) => i.sku === line.sku)?.qty;
+          const manifestQty = pallet?.items.find(
+            (i) => i.sku === line.sku,
+          )?.qty;
           const check =
             session.mode === 'SSCC'
               ? willCauseSsccVariance(
@@ -734,7 +732,8 @@ export class ReceivingService {
     const sessionEntity = await this.sessionsRepo.findOne({
       where: { id: sessionId },
     });
-    if (!sessionEntity) return { ok: false as const, message: 'Session not found' };
+    if (!sessionEntity)
+      return { ok: false as const, message: 'Session not found' };
     const session = await this.toSessionDto(sessionEntity);
     const asn = await this.getAsn(session.asnId).catch(() => null);
     if (!asn) return { ok: false as const, message: 'ASN not found' };
@@ -866,12 +865,7 @@ export class ReceivingService {
             resolution: 'QUARANTINE',
           }),
         );
-        await manager.increment(
-          Inventory,
-          { sku: dto.sku },
-          'quarantine',
-          qty,
-        );
+        await manager.increment(Inventory, { sku: dto.sku }, 'quarantine', qty);
         nextStatus = 'DISCREPANCY';
       } else {
         const pending = await manager.count(Discrepancy, {
@@ -974,7 +968,8 @@ export class ReceivingService {
     const sessionEntity = await this.sessionsRepo.findOne({
       where: { id: sessionId },
     });
-    if (!sessionEntity) throw new NotFoundException(`Session ${sessionId} not found`);
+    if (!sessionEntity)
+      throw new NotFoundException(`Session ${sessionId} not found`);
 
     const existing = await this.putawayTasksRepo.count({
       where: { sessionId },
@@ -987,7 +982,10 @@ export class ReceivingService {
     const grouped = new Map<string, { qty: number; quarantine: boolean }>();
     for (const line of session.receivedLines) {
       const key = `${line.sku}|${line.quarantine ? 'Q' : 'A'}`;
-      const prev = grouped.get(key) ?? { qty: 0, quarantine: !!line.quarantine };
+      const prev = grouped.get(key) ?? {
+        qty: 0,
+        quarantine: !!line.quarantine,
+      };
       grouped.set(key, {
         qty: prev.qty + line.qty,
         quarantine: !!line.quarantine,
@@ -1017,11 +1015,7 @@ export class ReceivingService {
         { status: 'PUTAWAY' },
       );
       if (session.asnId !== 'UNKNOWN') {
-        await manager.update(
-          Asn,
-          { id: session.asnId },
-          { status: 'PUTAWAY' },
-        );
+        await manager.update(Asn, { id: session.asnId }, { status: 'PUTAWAY' });
       }
     });
 
@@ -1031,66 +1025,81 @@ export class ReceivingService {
   async confirmPutaway(taskId: string) {
     const task = await this.putawayTasksRepo.findOne({ where: { id: taskId } });
     if (!task) throw new NotFoundException(`Putaway task ${taskId} not found`);
-    if (task.status === 'CONFIRMED') {
-      return { ok: true as const, message: 'Already confirmed' };
-    }
+
+    let alreadyConfirmed = task.status === 'CONFIRMED';
 
     await this.dataSource.transaction(async (manager) => {
-      await manager.update(
-        PutawayTask,
-        { id: taskId },
-        { status: 'CONFIRMED' },
-      );
-      if (!task.quarantine) {
-        await manager.increment(
-          Inventory,
-          { sku: task.sku },
-          'available',
-          task.qty,
-        );
+      await manager.findOne(ReceivingSession, {
+        where: { id: task.sessionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      const current = await manager.findOne(PutawayTask, {
+        where: { id: taskId },
+      });
+      if (!current) {
+        throw new NotFoundException(`Putaway task ${taskId} not found`);
       }
 
-      const sessionTasks = await manager.find(PutawayTask, {
-        where: { sessionId: task.sessionId },
-      });
-      const allDone = sessionTasks.every(
-        (t) => t.id === taskId || t.status === 'CONFIRMED',
-      );
-      if (allDone) {
-        const session = await manager.findOne(ReceivingSession, {
-          where: { id: task.sessionId },
-        });
-        if (session) {
-          await manager.update(
-            ReceivingSession,
-            { id: session.id },
-            { status: 'COMPLETED' },
-          );
-          if (session.asnId !== 'UNKNOWN') {
-            await manager.update(
-              Asn,
-              { id: session.asnId },
-              { status: 'COMPLETED' },
-            );
-            await manager.update(
-              Appointment,
-              {
-                asnId: session.asnId,
-                status: In(['BOOKED', 'ARRIVED']),
-              },
-              { status: 'COMPLETED' },
-            );
-          }
-          await manager.update(
-            Dock,
-            { id: session.dockId },
-            { status: 'AVAILABLE' },
+      if (current.status !== 'CONFIRMED') {
+        await manager.update(
+          PutawayTask,
+          { id: taskId },
+          { status: 'CONFIRMED' },
+        );
+        if (!current.quarantine) {
+          await manager.increment(
+            Inventory,
+            { sku: current.sku },
+            'available',
+            current.qty,
           );
         }
+      } else {
+        alreadyConfirmed = true;
       }
+
+      await this.completeReceivingSessionIfReady(manager, task.sessionId);
     });
 
-    return { ok: true as const };
+    return alreadyConfirmed
+      ? ({ ok: true as const, message: 'Already confirmed' } as const)
+      : ({ ok: true as const } as const);
+  }
+
+  private async completeReceivingSessionIfReady(
+    manager: EntityManager,
+    sessionId: string,
+  ): Promise<void> {
+    const pending = await manager.count(PutawayTask, {
+      where: { sessionId, status: 'PENDING' },
+    });
+    if (pending > 0) return;
+
+    const session = await manager.findOne(ReceivingSession, {
+      where: { id: sessionId },
+    });
+    if (!session || ['COMPLETED', 'REJECTED'].includes(session.status)) {
+      return;
+    }
+
+    await manager.update(
+      ReceivingSession,
+      { id: sessionId },
+      { status: 'COMPLETED' },
+    );
+    if (session.asnId !== 'UNKNOWN') {
+      await manager.update(Asn, { id: session.asnId }, { status: 'COMPLETED' });
+      await manager.update(
+        Appointment,
+        {
+          asnId: session.asnId,
+          status: In(['BOOKED', 'ARRIVED']),
+        },
+        { status: 'COMPLETED' },
+      );
+    }
+    await manager.update(Dock, { id: session.dockId }, { status: 'AVAILABLE' });
   }
 
   listInventory() {

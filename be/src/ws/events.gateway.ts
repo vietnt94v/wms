@@ -7,21 +7,26 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { Server, Socket } from 'socket.io';
+import { DefaultEventsMap, Server, Socket } from 'socket.io';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UsersService } from '../users/users.service';
 import { COMMAND_CODES, WsEnvelope } from './ws-envelope';
 
-type AuthedSocket = Socket & {
-  data: {
-    user?: {
-      id: string;
-      username: string;
-      fullName: string;
-      roles: string[];
-    };
+type SocketData = {
+  user?: {
+    id: string;
+    username: string;
+    fullName: string;
+    roles: string[];
   };
 };
+
+type AuthedSocket = Socket<
+  DefaultEventsMap,
+  DefaultEventsMap,
+  DefaultEventsMap,
+  SocketData
+>;
 
 @WebSocketGateway({
   namespace: '/ws',
@@ -91,12 +96,13 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private extractToken(client: Socket): string | null {
-    const authToken = client.handshake.auth?.token;
+    const auth = client.handshake.auth as Record<string, unknown>;
+    const authToken = auth.token;
     if (typeof authToken === 'string' && authToken.length > 0) {
       return authToken;
     }
 
-    const queryToken = client.handshake.query?.token;
+    const queryToken = client.handshake.query.token;
     if (typeof queryToken === 'string' && queryToken.length > 0) {
       return queryToken;
     }
