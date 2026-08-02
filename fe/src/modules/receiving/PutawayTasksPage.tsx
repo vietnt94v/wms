@@ -31,8 +31,9 @@ export function PutawayTasksPage() {
             size="sm"
             variant="outline"
             onClick={() => {
-              generatePutawayTasks(s.id)
-              toaster.create({ title: 'Tasks generated', type: 'success' })
+              void generatePutawayTasks(s.id).then(() =>
+                toaster.create({ title: 'Tasks generated', type: 'success' }),
+              )
             }}
           >
             Generate for {s.asnId}
@@ -72,14 +73,15 @@ export function PutawayTasksPage() {
                       size="xs"
                       colorPalette="green"
                       onClick={() => {
-                        confirmPutaway(t.id)
-                        toaster.create({
-                          title: 'Putaway confirmed',
-                          description: t.quarantine
-                            ? 'Kept in quarantine'
-                            : 'Available inventory updated',
-                          type: 'success',
-                        })
+                        void confirmPutaway(t.id).then(() =>
+                          toaster.create({
+                            title: 'Putaway confirmed',
+                            description: t.quarantine
+                              ? 'Kept in quarantine'
+                              : 'Available inventory updated',
+                            type: 'success',
+                          }),
+                        )
                       }}
                     >
                       Confirm

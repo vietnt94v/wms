@@ -81,12 +81,14 @@ export function DiscrepanciesPage() {
                           size="xs"
                           colorPalette={a.color}
                           onClick={() => {
-                            resolveDiscrepancy(d.id, a.resolution)
-                            generatePutawayTasks(d.sessionId)
-                            toaster.create({
-                              title: `Resolved: ${a.label}`,
-                              type: 'success',
-                            })
+                            void resolveDiscrepancy(d.id, a.resolution)
+                              .then(() => generatePutawayTasks(d.sessionId))
+                              .then(() =>
+                                toaster.create({
+                                  title: `Resolved: ${a.label}`,
+                                  type: 'success',
+                                }),
+                              )
                           }}
                         >
                           {a.label}

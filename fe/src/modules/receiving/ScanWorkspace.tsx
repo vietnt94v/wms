@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import axios from 'axios'
 import {
   Box,
   Button,
@@ -16,6 +17,7 @@ import { VarianceReasonPicker } from '@/components/ui/variance-reason-picker'
 import {
   RECEIPT_VARIANCE_REASONS,
   receivedQtyForSku,
+  willCauseSsccVariance,
   willCauseVariance,
   type ASN,
   type ReceiptVarianceReasonId,
@@ -56,11 +58,27 @@ export function ScanWorkspace({ session, asn }: Props) {
 
   const varianceChecks = useMemo(
     () =>
-      pendingLines.map((line) => ({
-        sku: line.sku,
-        ...willCauseVariance(asn, session, line.sku, line.qty),
-      })),
-    [asn, session, pendingLines],
+      pendingLines.map((line) => {
+        if (pendingKind === 'SSCC') {
+          const pallet = asn.pallets.find((p) => p.sscc === pendingCode)
+          const manifestQty = pallet?.items.find((i) => i.sku === line.sku)?.qty
+          return {
+            sku: line.sku,
+            ...willCauseSsccVariance(
+              asn,
+              session,
+              line.sku,
+              line.qty,
+              manifestQty,
+            ),
+          }
+        }
+        return {
+          sku: line.sku,
+          ...willCauseVariance(asn, session, line.sku, line.qty),
+        }
+      }),
+    [asn, session, pendingLines, pendingKind, pendingCode],
   )
 
   const hasVariance = varianceChecks.some((c) => c.hasVariance)
@@ -122,7 +140,7 @@ export function ScanWorkspace({ session, asn }: Props) {
         type: 'error',
       })
       if (preview.errorType === 'UNEXPECTED_ITEM' || preview.errorType === 'UNKNOWN_PALLET') {
-        scan({
+        void scan({
           sessionId: session.id,
           code,
           confirm: true,
@@ -164,41 +182,59 @@ export function ScanWorkspace({ session, asn }: Props) {
     )
   }
 
-  const onConfirm = () => {
+  const onConfirm = async () => {
     if (!canConfirm) return
 
     const primary = pendingLines[0]
-    const event = scan({
-      sessionId: session.id,
-      code: pendingCode,
-      lot: lot || primary?.lot,
-      expiry: expiry || primary?.expiry,
-      qty: session.mode === 'CONTAINER' ? primary?.qty : undefined,
-      lines: session.mode === 'SSCC' ? pendingLines : undefined,
-      varianceReason: hasVariance ? resolvedVarianceReason : undefined,
-      varianceReasonId: hasVariance && varianceReasonId ? varianceReasonId : undefined,
-      confirm: true,
-      allowOverOverride: allowOver,
-    })
+    try {
+      const event = await scan({
+        sessionId: session.id,
+        code: pendingCode,
+        lot: lot || primary?.lot,
+        expiry: expiry || primary?.expiry,
+        qty: session.mode === 'CONTAINER' ? primary?.qty : undefined,
+        lines: session.mode === 'SSCC' ? pendingLines : undefined,
+        varianceReason: hasVariance ? resolvedVarianceReason : undefined,
+        varianceReasonId: hasVariance && varianceReasonId ? varianceReasonId : undefined,
+        confirm: true,
+        allowOverOverride: allowOver,
+      })
 
-    const type =
-      event.result === 'OK'
-        ? 'success'
-        : event.result === 'WARN'
-          ? 'warning'
-          : 'error'
+      const type =
+        event.result === 'OK'
+          ? 'success'
+          : event.result === 'WARN'
+            ? 'warning'
+            : 'error'
 
-    toaster.create({
-      title: event.errorType ?? event.result,
-      description: `${event.message}${event.actionHint ? ` — ${event.actionHint}` : ''}`,
-      type,
-    })
+      toaster.create({
+        title: event.errorType ?? event.result,
+        description: `${event.message}${event.actionHint ? ` — ${event.actionHint}` : ''}`,
+        type,
+      })
 
-    if (event.result === 'OK') {
-      resetPending()
-      setLot('')
-      setExpiry('')
-      setAllowOver(false)
+      if (event.result === 'OK') {
+        resetPending()
+        setLot('')
+        setExpiry('')
+        setAllowOver(false)
+      }
+    } catch (err) {
+      const raw = axios.isAxiosError(err)
+        ? err.response?.data?.message
+        : undefined
+      const message = Array.isArray(raw)
+        ? raw.join(', ')
+        : typeof raw === 'string'
+          ? raw
+          : err instanceof Error
+            ? err.message
+            : 'Request failed — check network or try again'
+      toaster.create({
+        title: 'Scan failed',
+        description: message,
+        type: 'error',
+      })
     }
   }
 

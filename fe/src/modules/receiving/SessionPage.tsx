@@ -75,9 +75,12 @@ export function SessionPage() {
             <Button
               colorPalette="red"
               onClick={() => {
-                rejectArrival(session.id, 'Rejected unknown truck')
-                toaster.create({ title: 'Arrival rejected', type: 'error' })
-                navigate('/receiving/docks')
+                void rejectArrival(session.id, 'Rejected unknown truck').then(
+                  () => {
+                    toaster.create({ title: 'Arrival rejected', type: 'error' })
+                    navigate('/receiving/docks')
+                  },
+                )
               }}
             >
               Reject truck
@@ -86,11 +89,12 @@ export function SessionPage() {
               <Button
                 colorPalette="orange"
                 onClick={() => {
-                  approveUnknownArrival(session.id)
-                  toaster.create({
-                    title: 'Exception approved',
-                    type: 'success',
-                  })
+                  void approveUnknownArrival(session.id).then(() =>
+                    toaster.create({
+                      title: 'Exception approved',
+                      type: 'success',
+                    }),
+                  )
                 }}
               >
                 Supervisor approve exception
@@ -104,8 +108,9 @@ export function SessionPage() {
         {session.status === 'GATE_IN' && canOperate && (
           <Button
             onClick={() => {
-              startUnload(session.id)
-              toaster.create({ title: 'Unloading', type: 'success' })
+              void startUnload(session.id).then(() =>
+                toaster.create({ title: 'Unloading', type: 'success' }),
+              )
             }}
           >
             Start unloading
@@ -115,8 +120,9 @@ export function SessionPage() {
           <Button
             colorPalette="blue"
             onClick={() => {
-              startReceiving(session.id)
-              toaster.create({ title: 'Receiving started', type: 'success' })
+              void startReceiving(session.id).then(() =>
+                toaster.create({ title: 'Receiving started', type: 'success' }),
+              )
             }}
           >
             Start check-in / scan
@@ -127,21 +133,22 @@ export function SessionPage() {
             colorPalette="green"
             disabled={!finishGate?.ok}
             onClick={() => {
-              const result = finishReceiving(session.id)
-              if (!result.ok) {
+              void finishReceiving(session.id).then((result) => {
+                if (!result.ok) {
+                  toaster.create({
+                    title: 'Cannot close receiving',
+                    description: result.message,
+                    type: 'error',
+                  })
+                  return
+                }
                 toaster.create({
-                  title: 'Cannot close receiving',
+                  title: 'Moved to QC',
                   description: result.message,
-                  type: 'error',
+                  type: 'success',
                 })
-                return
-              }
-              toaster.create({
-                title: 'Moved to QC',
-                description: result.message,
-                type: 'success',
+                navigate('/receiving/qc')
               })
-              navigate('/receiving/qc')
             }}
           >
             Finish receiving → QC

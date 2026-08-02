@@ -45,7 +45,7 @@ export function ReceivingHome() {
     {
       to: '/receiving/asn',
       label: 'ASN Inbox',
-      description: 'ASN/PO pushed from external systems',
+      description: 'ASNs pushed from external systems',
       icon: LuInbox,
       accent: 'cyan',
       badge: `${asns.length} ASN`,

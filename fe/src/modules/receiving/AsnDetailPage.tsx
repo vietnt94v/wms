@@ -8,11 +8,8 @@ import { StatusBadge } from './StatusBadge'
 export function AsnDetailPage() {
   const { id } = useParams()
   const asn = useReceivingStore((s) => s.asns.find((a) => a.id === id))
-  const po = useReceivingStore((s) =>
-    asn ? s.purchaseOrders.find((p) => p.id === asn.poId) : undefined,
-  )
   const supplier = useReceivingStore((s) =>
-    po ? s.suppliers.find((x) => x.id === po.supplierId) : undefined,
+    asn ? s.suppliers.find((x) => x.id === asn.supplierId) : undefined,
   )
 
   if (!asn) {
@@ -30,8 +27,7 @@ export function AsnDetailPage() {
       <Heading size="xl">{asn.id}</Heading>
       <HMeta
         items={[
-          ['PO', asn.poId],
-          ['Supplier', supplier?.name ?? '-'],
+          ['Supplier', supplier?.name ?? asn.supplierId],
           ['Mode', asn.type],
           ['Carrier', asn.carrier],
           ['Plate', asn.plateNo],
@@ -42,29 +38,24 @@ export function AsnDetailPage() {
       <SimpleGrid columns={{ base: 1, lg: 2 }} gap="4">
         <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
           <Heading size="md" mb="3">
-            PO ↔ ASN lines
+            ASN lines
           </Heading>
           <Table.Root size="sm" interactive>
             <Table.Header>
               <Table.Row>
                 <Table.ColumnHeader>SKU</Table.ColumnHeader>
-                <Table.ColumnHeader>PO qty</Table.ColumnHeader>
-                <Table.ColumnHeader>ASN expected</Table.ColumnHeader>
+                <Table.ColumnHeader>Expected</Table.ColumnHeader>
                 <Table.ColumnHeader>Received</Table.ColumnHeader>
               </Table.Row>
             </Table.Header>
             <Table.Body>
-              {(po?.lines ?? []).map((line) => {
-                const asnLine = asn.lines.find((l) => l.sku === line.sku)
-                return (
-                  <Table.Row key={line.sku}>
-                    <Table.Cell>{line.sku}</Table.Cell>
-                    <Table.Cell>{line.qty}</Table.Cell>
-                    <Table.Cell>{asnLine?.expectedQty ?? 0}</Table.Cell>
-                    <Table.Cell>{asnLine?.receivedQty ?? 0}</Table.Cell>
-                  </Table.Row>
-                )
-              })}
+              {asn.lines.map((line) => (
+                <Table.Row key={line.sku}>
+                  <Table.Cell>{line.sku}</Table.Cell>
+                  <Table.Cell>{line.expectedQty}</Table.Cell>
+                  <Table.Cell>{line.receivedQty}</Table.Cell>
+                </Table.Row>
+              ))}
             </Table.Body>
           </Table.Root>
         </Box>

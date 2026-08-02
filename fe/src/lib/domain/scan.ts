@@ -1,5 +1,6 @@
 import {
   OVER_RECEIPT_TOLERANCE,
+  willCauseSsccVariance,
   willCauseVariance,
   type ASN,
   type AsnPallet,
@@ -61,14 +62,17 @@ function findPallet(asn: ASN, sscc: string): AsnPallet | undefined {
   return asn.pallets.find((p) => p.sscc === sscc)
 }
 
-function linesHaveVariance(
+function ssccLinesHaveVariance(
   asn: ASN,
   session: ReceivingSession,
+  pallet: AsnPallet,
   lines: ScanLineInput[],
 ): boolean {
-  return lines.some((l) =>
-    willCauseVariance(asn, session, l.sku, l.qty).hasVariance,
-  )
+  return lines.some((l) => {
+    const manifestQty = pallet.items.find((i) => i.sku === l.sku)?.qty
+    return willCauseSsccVariance(asn, session, l.sku, l.qty, manifestQty)
+      .hasVariance
+  })
 }
 
 function validateSsccScan(input: ScanValidationInput): ScanValidationResult {
@@ -171,7 +175,12 @@ function validateSsccScan(input: ScanValidationInput): ScanValidationResult {
     }
   }
 
-  const hasVariance = linesHaveVariance(input.asn, input.session, lines)
+  const hasVariance = ssccLinesHaveVariance(
+    input.asn,
+    input.session,
+    pallet,
+    lines,
+  )
   if (hasVariance && !input.varianceReason?.trim()) {
     return {
       result: 'BLOCK',
@@ -249,7 +258,7 @@ function validateContainerScan(input: ScanValidationInput): ScanValidationResult
     return {
       result: 'BLOCK',
       errorType: 'UNEXPECTED_ITEM',
-      message: `SKU ${sku} not on ASN/PO`,
+      message: `SKU ${sku} not on ASN`,
       actionHint: 'Block receipt — create WRONG_ITEM discrepancy',
       kind: 'SKU',
       apply: {

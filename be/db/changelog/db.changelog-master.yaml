@@ -5,3 +5,9 @@ databaseChangeLog:
   - include:
       file: changesets/002-auth-seed.sql
       relativeToChangelogFile: true
+  - include:
+      file: changesets/003-receiving-schema.sql
+      relativeToChangelogFile: true
+  - include:
+      file: changesets/004-receiving-seed.sql
+      relativeToChangelogFile: true

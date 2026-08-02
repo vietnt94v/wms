@@ -113,18 +113,6 @@ export interface Product {
   shelfLifeDays?: number
 }
 
-export interface PoLine {
-  sku: string
-  qty: number
-}
-
-export interface PurchaseOrder {
-  id: string
-  supplierId: string
-  lines: PoLine[]
-  status: 'OPEN' | 'CLOSED'
-}
-
 export interface AsnLine {
   sku: string
   expectedQty: number
@@ -149,7 +137,7 @@ export interface AsnPallet {
 
 export interface ASN {
   id: string
-  poId: string
+  supplierId: string
   type: AsnType
   carrier: string
   plateNo: string
@@ -312,6 +300,31 @@ export function willCauseVariance(
   const gap = next - expected
   return {
     hasVariance: next !== expected,
+    expected,
+    current,
+    next,
+    gap,
+  }
+}
+
+export function willCauseSsccVariance(
+  asn: ASN,
+  session: ReceivingSession,
+  sku: string,
+  qtyToAdd: number,
+  manifestQty?: number,
+): VarianceCheck {
+  const line = asn.lines.find((l) => l.sku === sku)
+  const expected = line?.expectedQty ?? 0
+  const current = receivedQtyForSku(session, sku)
+  const next = current + qtyToAdd
+  const gap = next - expected
+  const maxAllowed = expected * (1 + OVER_RECEIPT_TOLERANCE)
+  const overReceipt = next > maxAllowed
+  const manifestMismatch =
+    manifestQty !== undefined && qtyToAdd !== manifestQty
+  return {
+    hasVariance: overReceipt || manifestMismatch,
     expected,
     current,
     next,

@@ -44,8 +44,8 @@ export function DocksPage() {
 
   const bookableDocks = docks.filter((d) => d.status !== 'BLOCKED')
 
-  const handleSchedule = () => {
-    const result = scheduleAppointment({
+  const handleSchedule = async () => {
+    const result = await scheduleAppointment({
       asnId,
       dockId,
       windowStart: windowStart || new Date().toISOString(),
@@ -58,8 +58,8 @@ export function DocksPage() {
     })
   }
 
-  const handleGateIn = () => {
-    const result = gateIn({
+  const handleGateIn = async () => {
+    const result = await gateIn({
       appointmentId: gateAptId || undefined,
       dockId: gateDockId,
       plateNo,
@@ -117,11 +117,13 @@ export function DocksPage() {
                           size="xs"
                           colorPalette="red"
                           onClick={() => {
-                            rejectArrival(session.id, 'Rejected at gate')
-                            toaster.create({
-                              title: 'Arrival rejected',
-                              type: 'error',
-                            })
+                            void rejectArrival(session.id, 'Rejected at gate').then(
+                              () =>
+                                toaster.create({
+                                  title: 'Arrival rejected',
+                                  type: 'error',
+                                }),
+                            )
                           }}
                         >
                           Reject
@@ -133,11 +135,12 @@ export function DocksPage() {
                               size="xs"
                               colorPalette="orange"
                               onClick={() => {
-                                approveUnknownArrival(session.id)
-                                toaster.create({
-                                  title: 'Supervisor approved',
-                                  type: 'success',
-                                })
+                                void approveUnknownArrival(session.id).then(() =>
+                                  toaster.create({
+                                    title: 'Supervisor approved',
+                                    type: 'success',
+                                  }),
+                                )
                               }}
                             >
                               Supervisor approve
@@ -153,11 +156,12 @@ export function DocksPage() {
                         size="xs"
                         mt="2"
                         onClick={() => {
-                          startUnload(session.id)
-                          toaster.create({
-                            title: 'Unloading started',
-                            type: 'success',
-                          })
+                          void startUnload(session.id).then(() =>
+                            toaster.create({
+                              title: 'Unloading started',
+                              type: 'success',
+                            }),
+                          )
                         }}
                       >
                         Start unloading

@@ -54,9 +54,9 @@ export function QcPage() {
       : undefined
   const skuAlreadyQc = !!existingQc
 
-  const handleQc = (pass: boolean) => {
+  const handleQc = async (pass: boolean) => {
     if (!sessionId || !activeSku) return
-    const result = submitQc({
+    const result = await submitQc({
       sessionId,
       sku: activeSku,
       sampleQty: Number(sampleQty) || 1,
@@ -167,11 +167,12 @@ export function QcPage() {
                 variant="outline"
                 disabled={pendingSkus.length > 0}
                 onClick={() => {
-                  generatePutawayTasks(session.id)
-                  toaster.create({
-                    title: 'Putaway tasks generated',
-                    type: 'success',
-                  })
+                  void generatePutawayTasks(session.id).then(() =>
+                    toaster.create({
+                      title: 'Putaway tasks generated',
+                      type: 'success',
+                    }),
+                  )
                 }}
               >
                 Generate putaway tasks
