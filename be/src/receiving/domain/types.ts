@@ -15,7 +15,8 @@ export type AsnStatus =
   | 'COMPLETED'
   | 'REJECTED';
 
-export type AppointmentStatus = 'BOOKED' | 'ARRIVED' | 'CANCELLED' | 'COMPLETED';
+export type AppointmentStatus =
+  'BOOKED' | 'ARRIVED' | 'CANCELLED' | 'COMPLETED';
 export type SessionStatus =
   | 'GATE_IN'
   | 'UNLOADING'
@@ -27,12 +28,7 @@ export type SessionStatus =
   | 'REJECTED';
 
 export type DiscrepancyType =
-  | 'OVER'
-  | 'SHORT'
-  | 'DAMAGED'
-  | 'WRONG_ITEM'
-  | 'QC_FAIL'
-  | 'UNKNOWN';
+  'OVER' | 'SHORT' | 'DAMAGED' | 'WRONG_ITEM' | 'QC_FAIL' | 'UNKNOWN';
 
 export type ReceiptVarianceReasonId =
   | 'SHORT_SHIPMENT'
@@ -143,7 +139,11 @@ export const RECEIPT_VARIANCE_REASONS: Array<{
   discrepancyType: DiscrepancyType | null;
 }> = [
   { id: 'SHORT_SHIPMENT', label: 'Short shipment', discrepancyType: 'SHORT' },
-  { id: 'DAMAGED', label: 'Damaged / missing units', discrepancyType: 'DAMAGED' },
+  {
+    id: 'DAMAGED',
+    label: 'Damaged / missing units',
+    discrepancyType: 'DAMAGED',
+  },
   {
     id: 'LABEL_COUNT_ERROR',
     label: 'Label count error',
@@ -219,6 +219,33 @@ export function resolveVarianceDiscrepancyType(
   const reason = RECEIPT_VARIANCE_REASONS.find((r) => r.id === reasonId);
   if (reason?.discrepancyType) return reason.discrepancyType;
   return gap > 0 ? 'OVER' : 'SHORT';
+}
+
+const GATE_IN_ASN_STATUSES: AsnStatus[] = ['EXPECTED', 'SCHEDULED'];
+
+export function canGateInAsn(asn: { status: AsnStatus }): {
+  ok: boolean;
+  message: string;
+} {
+  if (asn.status === 'COMPLETED') {
+    return {
+      ok: false,
+      message: 'ASN already completed — create a new ASN for another delivery',
+    };
+  }
+  if (asn.status === 'REJECTED') {
+    return {
+      ok: false,
+      message: 'ASN was rejected — create a new ASN to receive again',
+    };
+  }
+  if (!GATE_IN_ASN_STATUSES.includes(asn.status)) {
+    return {
+      ok: false,
+      message: `ASN is in ${asn.status} — finish or reject the current receiving session first`,
+    };
+  }
+  return { ok: true, message: 'ASN eligible for gate-in' };
 }
 
 export function canFinishReceiving(session: ReceivingSessionDto): {

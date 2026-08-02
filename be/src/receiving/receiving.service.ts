@@ -4,10 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { findSsccOnOtherAsn, validateScan } from './domain/scan';
 import {
   canFinishReceiving,
+  canGateInAsn,
   OVER_RECEIPT_TOLERANCE,
   resolveVarianceDiscrepancyType,
   suggestLocation,
@@ -289,6 +290,13 @@ export class ReceivingService {
         })
       : null;
 
+    if (appointment && appointment.status !== 'BOOKED') {
+      return {
+        ok: false as const,
+        message: `Appointment is ${appointment.status} — book a new appointment`,
+      };
+    }
+
     let asn = dto.asnId
       ? await this.asnsRepo.findOne({
           where: { id: dto.asnId },
@@ -318,6 +326,17 @@ export class ReceivingService {
         asn = byPlate;
       } else {
         unknownArrival = true;
+      }
+    }
+
+    if (asn) {
+      const gate = canGateInAsn({ status: asn.status as AsnStatus });
+      if (!gate.ok) return { ok: false as const, message: gate.message };
+      if (appointment && appointment.asnId !== asn.id) {
+        return {
+          ok: false as const,
+          message: 'Appointment does not match ASN',
+        };
       }
     }
 
@@ -1051,6 +1070,14 @@ export class ReceivingService {
             await manager.update(
               Asn,
               { id: session.asnId },
+              { status: 'COMPLETED' },
+            );
+            await manager.update(
+              Appointment,
+              {
+                asnId: session.asnId,
+                status: In(['BOOKED', 'ARRIVED']),
+              },
               { status: 'COMPLETED' },
             );
           }
