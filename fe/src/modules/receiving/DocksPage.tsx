@@ -4,8 +4,6 @@ import {
   Button,
   Heading,
   HStack,
-  Input,
-  NativeSelect,
   SimpleGrid,
   Stack,
   Table,
@@ -13,6 +11,8 @@ import {
 } from '@chakra-ui/react'
 import { useNavigate } from 'react-router-dom'
 import { AppLink } from '@/components/ui/app-link'
+import { FormInput } from '@/components/ui/form-input'
+import { FormSelect } from '@/components/ui/form-select'
 import { toaster } from '@/components/ui/toaster'
 import { useDockAssignmentStore } from '@/store/dockAssignmentStore'
 import { useReceivingStore } from '@/store/receivingStore'
@@ -190,42 +190,46 @@ export function DocksPage() {
             Book appointment
           </Heading>
           <Stack gap="3">
-            <NativeSelect.Root>
-              <NativeSelect.Field
-                value={asnId}
-                onChange={(e) => setAsnId(e.target.value)}
-              >
-                {schedulable.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.id} ({a.plateNo})
-                  </option>
-                ))}
-              </NativeSelect.Field>
-            </NativeSelect.Root>
-            <NativeSelect.Root>
-              <NativeSelect.Field
-                value={dockId}
-                onChange={(e) => setDockId(e.target.value)}
-              >
-                {bookableDocks.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} — {d.status}
-                    {d.operator ? ` · ${d.operator.fullName}` : ''}
-                  </option>
-                ))}
-              </NativeSelect.Field>
-            </NativeSelect.Root>
-            <HStack>
-              <Input
-                type="datetime-local"
-                value={windowStart}
-                onChange={(e) => setWindowStart(e.target.value)}
-              />
-              <Input
-                type="datetime-local"
-                value={windowEnd}
-                onChange={(e) => setWindowEnd(e.target.value)}
-              />
+            <FormSelect
+              label="ASN"
+              value={asnId}
+              onChange={(e) => setAsnId(e.target.value)}
+            >
+              {schedulable.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.id} ({a.plateNo})
+                </option>
+              ))}
+            </FormSelect>
+            <FormSelect
+              label="Dock"
+              value={dockId}
+              onChange={(e) => setDockId(e.target.value)}
+            >
+              {bookableDocks.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} — {d.status}
+                  {d.operator ? ` · ${d.operator.fullName}` : ''}
+                </option>
+              ))}
+            </FormSelect>
+            <HStack align="flex-end">
+              <Box flex="1">
+                <FormInput
+                  label="Window start"
+                  type="datetime-local"
+                  value={windowStart}
+                  onChange={(e) => setWindowStart(e.target.value)}
+                />
+              </Box>
+              <Box flex="1">
+                <FormInput
+                  label="Window end"
+                  type="datetime-local"
+                  value={windowEnd}
+                  onChange={(e) => setWindowEnd(e.target.value)}
+                />
+              </Box>
             </HStack>
             <Button colorPalette="blue" onClick={handleSchedule}>
               Schedule
@@ -238,49 +242,46 @@ export function DocksPage() {
             Gate-in
           </Heading>
           <Stack gap="3">
-            <NativeSelect.Root>
-              <NativeSelect.Field
-                value={gateDockId}
-                onChange={(e) => setGateDockId(e.target.value)}
-              >
-                {docks.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} — {d.status}
-                    {d.id === myDockId ? ' (your dock)' : ''}
-                    {d.operator ? ` · ${d.operator.fullName}` : ''}
+            <FormSelect
+              label="Dock"
+              value={gateDockId}
+              onChange={(e) => setGateDockId(e.target.value)}
+            >
+              {docks.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} — {d.status}
+                  {d.id === myDockId ? ' (your dock)' : ''}
+                  {d.operator ? ` · ${d.operator.fullName}` : ''}
+                </option>
+              ))}
+            </FormSelect>
+            <FormSelect
+              label="Appointment"
+              value={gateAptId}
+              onChange={(e) => setGateAptId(e.target.value)}
+            >
+              <option value="">No appointment / walk-in</option>
+              {appointments
+                .filter((a) => a.status === 'BOOKED')
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.id} → {a.asnId} @ {a.dockId}
                   </option>
                 ))}
-              </NativeSelect.Field>
-            </NativeSelect.Root>
-            <NativeSelect.Root>
-              <NativeSelect.Field
-                value={gateAptId}
-                onChange={(e) => setGateAptId(e.target.value)}
-              >
-                <option value="">No appointment / walk-in</option>
-                {appointments
-                  .filter((a) => a.status === 'BOOKED')
-                  .map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.id} → {a.asnId} @ {a.dockId}
-                    </option>
-                  ))}
-              </NativeSelect.Field>
-            </NativeSelect.Root>
+            </FormSelect>
             {!gateAptId && (
-              <NativeSelect.Root>
-                <NativeSelect.Field
-                  value={gateAsnId}
-                  onChange={(e) => setGateAsnId(e.target.value)}
-                >
-                  <option value="">Select ASN</option>
-                  {gateInAsns.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.id} ({a.plateNo})
-                    </option>
-                  ))}
-                </NativeSelect.Field>
-              </NativeSelect.Root>
+              <FormSelect
+                label="ASN"
+                value={gateAsnId}
+                onChange={(e) => setGateAsnId(e.target.value)}
+              >
+                <option value="">Select ASN</option>
+                {gateInAsns.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.id} ({a.plateNo})
+                  </option>
+                ))}
+              </FormSelect>
             )}
             <Button colorPalette="green" onClick={handleGateIn}>
               Gate-in

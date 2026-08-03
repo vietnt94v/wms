@@ -4,13 +4,13 @@ import {
   Button,
   Heading,
   HStack,
-  Input,
   Spinner,
   Stack,
   Text,
 } from '@chakra-ui/react'
 import { isAxiosError } from 'axios'
 import { Navigate, useNavigate } from 'react-router-dom'
+import { FormInput } from '@/components/ui/form-input'
 import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
 import { OperatorConfirmDialog } from '@/components/ui/operator-confirm-dialog'
 import { useDockAssignmentStore } from '@/store/dockAssignmentStore'
@@ -106,7 +106,8 @@ export function DockCheckInPage() {
 
       <Box bg="bg.panel" p="6" borderWidth="1px" borderRadius="xl">
         <Stack gap="4">
-          <Input
+          <FormInput
+            label="Dock ID"
             autoFocus
             size="lg"
             placeholder="Scan dock ID (e.g. D01)"

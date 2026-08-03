@@ -1,4 +1,5 @@
-import { Button, HStack, Input, Stack, Text } from '@chakra-ui/react'
+import { Button, Field, HStack, Stack, Text } from '@chakra-ui/react'
+import { FormInput } from '@/components/ui/form-input'
 import {
   RECEIPT_VARIANCE_REASONS,
   type ReceiptVarianceReasonId,
@@ -21,9 +22,14 @@ export function VarianceReasonPicker({
 }: Props) {
   return (
     <Stack gap="2">
-      <Text fontSize="sm" color="fg.warning" fontWeight="medium">
-        Quantity will not match expected — select a reason
-      </Text>
+      <Field.Root>
+        <Field.Label fontSize="sm" color="fg.warning" fontWeight="medium">
+          Variance reason
+        </Field.Label>
+        <Text fontSize="sm" color="fg.warning">
+          Quantity will not match expected — select a reason
+        </Text>
+      </Field.Root>
       <HStack gap="2" flexWrap="wrap">
         {RECEIPT_VARIANCE_REASONS.map((reason) => {
           const selected = value === reason.id
@@ -42,7 +48,8 @@ export function VarianceReasonPicker({
         })}
       </HStack>
       {value === 'OTHER' && (
-        <Input
+        <FormInput
+          label="Other reason"
           placeholder="Describe the reason"
           value={otherText}
           disabled={disabled}

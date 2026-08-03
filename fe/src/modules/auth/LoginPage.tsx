@@ -4,11 +4,11 @@ import {
   Box,
   Button,
   Heading,
-  Input,
   Stack,
   Text,
 } from '@chakra-ui/react'
 import axios from 'axios'
+import { FormInput } from '@/components/ui/form-input'
 import { toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/store/authStore'
 
@@ -74,29 +74,22 @@ export function LoginPage() {
               Sign in to continue to warehouse operations
             </Text>
           </Box>
-          <Stack gap="1">
-            <Text fontSize="sm" fontWeight="medium">
-              Username
-            </Text>
-            <Input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              autoComplete="username"
-              required
-            />
-          </Stack>
-          <Stack gap="1">
-            <Text fontSize="sm" fontWeight="medium">
-              Password
-            </Text>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </Stack>
+          <FormInput
+            label="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+            placeholder="operator"
+            required
+          />
+          <FormInput
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
           <Button type="submit" colorPalette="blue" loading={loading} w="full">
             Sign in
           </Button>

@@ -1,22 +1,28 @@
 import { Button, HStack, Input } from '@chakra-ui/react'
+import { FormField } from '@/components/ui/form-field'
 
 interface Props {
+  label: string
   value: number
   onChange: (value: number) => void
   min?: number
   disabled?: boolean
+  hideLabel?: boolean
 }
 
 export function QuantityStepper({
+  label,
   value,
   onChange,
   min = 1,
   disabled = false,
+  hideLabel = false,
 }: Props) {
   const clamp = (n: number) => Math.max(min, Math.floor(n) || min)
 
   return (
-    <HStack gap="1" maxW="220px">
+    <FormField label={label} hideLabel={hideLabel}>
+      <HStack gap="1" maxW="220px">
       <Button
         size="sm"
         colorPalette="blue"
@@ -51,6 +57,7 @@ export function QuantityStepper({
       >
         +
       </Button>
-    </HStack>
+      </HStack>
+    </FormField>
   )
 }

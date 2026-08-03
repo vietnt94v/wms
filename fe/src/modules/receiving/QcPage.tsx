@@ -4,13 +4,13 @@ import {
   Button,
   Heading,
   HStack,
-  Input,
-  NativeSelect,
   Stack,
   Table,
   Text,
-  Textarea,
 } from '@chakra-ui/react'
+import { FormInput } from '@/components/ui/form-input'
+import { FormSelect } from '@/components/ui/form-select'
+import { FormTextarea } from '@/components/ui/form-textarea'
 import { toaster } from '@/components/ui/toaster'
 import {
   getQcResultForSku,
@@ -91,45 +91,45 @@ export function QcPage() {
 
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
         <Stack gap="3" maxW="560px">
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={sessionId}
-              onChange={(e) => {
-                setSessionId(e.target.value)
-                setSku('')
-              }}
-            >
-              {qcSessions.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.id} — {s.asnId} ({s.status})
+          <FormSelect
+            label="Session"
+            value={sessionId}
+            onChange={(e) => {
+              setSessionId(e.target.value)
+              setSku('')
+            }}
+          >
+            {qcSessions.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.id} — {s.asnId} ({s.status})
+              </option>
+            ))}
+          </FormSelect>
+          <FormSelect
+            label="SKU"
+            value={activeSku}
+            onChange={(e) => setSku(e.target.value)}
+          >
+            {skus.map((s) => {
+              const done = getQcResultForSku(qcResults, sessionId, s)
+              return (
+                <option key={s} value={s}>
+                  {s}
+                  {done ? (done.pass ? ' — QC passed' : ' — QC failed') : ' — pending'}
                 </option>
-              ))}
-            </NativeSelect.Field>
-          </NativeSelect.Root>
-          <NativeSelect.Root>
-            <NativeSelect.Field
-              value={activeSku}
-              onChange={(e) => setSku(e.target.value)}
-            >
-              {skus.map((s) => {
-                const done = getQcResultForSku(qcResults, sessionId, s)
-                return (
-                  <option key={s} value={s}>
-                    {s}
-                    {done ? (done.pass ? ' — QC passed' : ' — QC failed') : ' — pending'}
-                  </option>
-                )
-              })}
-            </NativeSelect.Field>
-          </NativeSelect.Root>
-          <Input
+              )
+            })}
+          </FormSelect>
+          <FormInput
+            label="Sample qty"
             type="number"
             value={sampleQty}
             onChange={(e) => setSampleQty(e.target.value)}
             placeholder="Sample qty"
             disabled={skuAlreadyQc}
           />
-          <Textarea
+          <FormTextarea
+            label="Fail reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Fail reason"

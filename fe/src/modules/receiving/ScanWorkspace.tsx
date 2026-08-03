@@ -5,12 +5,12 @@ import {
   Button,
   Heading,
   HStack,
-  Input,
   Progress,
   Stack,
   Table,
   Text,
 } from '@chakra-ui/react'
+import { FormInput } from '@/components/ui/form-input'
 import { QuantityStepper } from '@/components/ui/quantity-stepper'
 import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
 import { toaster } from '@/components/ui/toaster'
@@ -259,7 +259,8 @@ export function ScanWorkspace({ session, asn }: Props) {
         </Progress.Root>
 
         <Stack gap="3">
-          <Input
+          <FormInput
+            label="Scan code"
             autoFocus
             placeholder={
               session.mode === 'SSCC'
@@ -274,21 +275,28 @@ export function ScanWorkspace({ session, asn }: Props) {
             disabled={!!pendingCode}
           />
           {session.mode === 'CONTAINER' && (
-            <HStack>
-              <Input
-                placeholder="Lot (if required)"
-                value={lot}
-                onChange={(e) => setLot(e.target.value)}
-              />
-              <Input
-                type="date"
-                value={expiry}
-                onChange={(e) => setExpiry(e.target.value)}
-              />
+            <HStack align="flex-end">
+              <Box flex="1">
+                <FormInput
+                  label="Lot"
+                  placeholder="Lot (if required)"
+                  value={lot}
+                  onChange={(e) => setLot(e.target.value)}
+                />
+              </Box>
+              <Box flex="1">
+                <FormInput
+                  label="Expiry"
+                  type="date"
+                  value={expiry}
+                  onChange={(e) => setExpiry(e.target.value)}
+                />
+              </Box>
               <Button
                 variant={allowOver ? 'solid' : 'outline'}
                 colorPalette="orange"
                 onClick={() => setAllowOver((v) => !v)}
+                mb="1"
               >
                 Supervisor override
               </Button>
@@ -327,6 +335,7 @@ export function ScanWorkspace({ session, asn }: Props) {
                     )
                   })()}
                   <QuantityStepper
+                    label="Quantity"
                     value={pendingLines[0].qty}
                     onChange={(qty) => updateLineQty(pendingLines[0].sku, qty)}
                   />
@@ -357,6 +366,8 @@ export function ScanWorkspace({ session, asn }: Props) {
                           <Table.Cell>{current}</Table.Cell>
                           <Table.Cell>
                             <QuantityStepper
+                              label={`Quantity for ${line.sku}`}
+                              hideLabel
                               value={line.qty}
                               onChange={(qty) => updateLineQty(line.sku, qty)}
                             />

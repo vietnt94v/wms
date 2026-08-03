@@ -4,13 +4,13 @@ import {
   Button,
   Heading,
   HStack,
-  Input,
-  NativeSelect,
   Stack,
   Text,
-  Textarea,
 } from '@chakra-ui/react'
 import axios from 'axios'
+import { FormInput } from '@/components/ui/form-input'
+import { FormSelect } from '@/components/ui/form-select'
+import { FormTextarea } from '@/components/ui/form-textarea'
 import { toaster } from '@/components/ui/toaster'
 import { uid, type AsnType } from '@/lib/domain/receiving'
 import { useReceivingStore } from '@/store/receivingStore'
@@ -121,10 +121,18 @@ export function InboundPage() {
           Push ASN
         </Heading>
         <Stack gap="3">
-          <HStack>
-            <Input value={asnId} onChange={(e) => setAsnId(e.target.value)} />
-            <NativeSelect.Root>
-              <NativeSelect.Field
+          <HStack align="flex-end">
+            <Box flex="1">
+              <FormInput
+                label="ASN ID"
+                value={asnId}
+                placeholder="ASN-123456"
+                onChange={(e) => setAsnId(e.target.value)}
+              />
+            </Box>
+            <Box flex="1">
+              <FormSelect
+                label="Supplier"
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
               >
@@ -133,31 +141,39 @@ export function InboundPage() {
                     {s.name}
                   </option>
                 ))}
-              </NativeSelect.Field>
-            </NativeSelect.Root>
-            <NativeSelect.Root>
-              <NativeSelect.Field
+              </FormSelect>
+            </Box>
+            <Box flex="1">
+              <FormSelect
+                label="ASN type"
                 value={type}
                 onChange={(e) => setType(e.target.value as AsnType)}
               >
                 <option value="SSCC">Full SSCC</option>
                 <option value="CONTAINER">Scan each container</option>
-              </NativeSelect.Field>
-            </NativeSelect.Root>
+              </FormSelect>
+            </Box>
           </HStack>
-          <HStack>
-            <Input
-              placeholder="Carrier"
-              value={carrier}
-              onChange={(e) => setCarrier(e.target.value)}
-            />
-            <Input
-              placeholder="Plate no"
-              value={plateNo}
-              onChange={(e) => setPlateNo(e.target.value)}
-            />
+          <HStack align="flex-end">
+            <Box flex="1">
+              <FormInput
+                label="Carrier"
+                placeholder="Carrier name"
+                value={carrier}
+                onChange={(e) => setCarrier(e.target.value)}
+              />
+            </Box>
+            <Box flex="1">
+              <FormInput
+                label="Plate no"
+                placeholder="51C-00001"
+                value={plateNo}
+                onChange={(e) => setPlateNo(e.target.value)}
+              />
+            </Box>
           </HStack>
-          <Textarea
+          <FormTextarea
+            label="Order lines"
             rows={4}
             value={linesText}
             onChange={(e) => setLinesText(e.target.value)}
@@ -167,7 +183,8 @@ export function InboundPage() {
             Products: {products.map((p) => p.sku).join(', ')}
           </Text>
           {type === 'SSCC' && (
-            <Textarea
+            <FormTextarea
+              label="SSCC pallets"
               rows={4}
               value={ssccText}
               onChange={(e) => setSsccText(e.target.value)}
