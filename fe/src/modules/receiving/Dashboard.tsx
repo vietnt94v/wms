@@ -81,6 +81,11 @@ export function ReceivingDashboard() {
               >
                 <Text fontWeight="bold">{dock.name}</Text>
                 <StatusBadge status={dock.status} />
+                <Text fontSize="xs" mt="1" color="fg.muted">
+                  {dock.operator
+                    ? `Operator: ${dock.operator.fullName}`
+                    : 'No operator'}
+                </Text>
               </Box>
             ))}
           </HStack>

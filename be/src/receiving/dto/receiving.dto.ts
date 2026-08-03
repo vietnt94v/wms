@@ -35,9 +35,6 @@ export class GateInDto {
 
   @IsString()
   dockId!: string;
-
-  @IsString()
-  plateNo!: string;
 }
 
 export class RejectArrivalDto {

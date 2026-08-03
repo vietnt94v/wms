@@ -147,10 +147,30 @@ export interface ASN {
   eta?: string
 }
 
+export interface DockOperator {
+  id: string
+  fullName: string
+}
+
 export interface Dock {
   id: string
   name: string
   status: DockStatus
+  operator?: DockOperator
+}
+
+export interface DockAssignment {
+  id: string
+  userId: string
+  dockId: string
+  status: 'ACTIVE' | 'ENDED'
+  startedAt: string
+  endedAt: string | null
+  dock: {
+    id: string
+    name: string
+    status: DockStatus
+  }
 }
 
 export interface Appointment {

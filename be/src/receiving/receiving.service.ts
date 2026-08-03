@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
 import { findSsccOnOtherAsn, validateScan } from './domain/scan';
 import {
   canFinishReceiving,
@@ -36,6 +38,7 @@ import { AsnLine } from './entities/asn-line.entity';
 import { AsnPallet } from './entities/asn-pallet.entity';
 import { Asn } from './entities/asn.entity';
 import { Discrepancy } from './entities/discrepancy.entity';
+import { DockAssignment } from './entities/dock-assignment.entity';
 import { Dock } from './entities/dock.entity';
 import { Inventory } from './entities/inventory.entity';
 import { PalletItem } from './entities/pallet-item.entity';
@@ -67,6 +70,10 @@ export class ReceivingService {
     private readonly palletItemsRepo: Repository<PalletItem>,
     @InjectRepository(Dock)
     private readonly docksRepo: Repository<Dock>,
+    @InjectRepository(DockAssignment)
+    private readonly dockAssignmentsRepo: Repository<DockAssignment>,
+    @InjectRepository(User)
+    private readonly usersRepo: Repository<User>,
     @InjectRepository(Appointment)
     private readonly appointmentsRepo: Repository<Appointment>,
     @InjectRepository(ReceivingSession)
@@ -205,12 +212,126 @@ export class ReceivingService {
     return this.getAsn(id);
   }
 
-  listDocks() {
-    return this.docksRepo
-      .find({ order: { id: 'ASC' } })
-      .then((rows) =>
-        rows.map((d) => ({ id: d.id, name: d.name, status: d.status })),
+  async listDocks() {
+    const docks = await this.docksRepo.find({ order: { id: 'ASC' } });
+    const active = await this.dockAssignmentsRepo.find({
+      where: { status: 'ACTIVE' },
+    });
+    const userIds = [...new Set(active.map((a) => a.userId))];
+    const users = userIds.length
+      ? await this.usersRepo.findBy({ id: In(userIds) })
+      : [];
+    const userMap = new Map(users.map((u) => [u.id, u]));
+    const byDock = new Map(active.map((a) => [a.dockId, a]));
+
+    return docks.map((d) => {
+      const assignment = byDock.get(d.id);
+      const user = assignment ? userMap.get(assignment.userId) : undefined;
+      return {
+        id: d.id,
+        name: d.name,
+        status: d.status,
+        operator: user ? { id: user.id, fullName: user.fullName } : undefined,
+      };
+    });
+  }
+
+  private toAssignmentDto(assignment: DockAssignment, dock: Dock) {
+    return {
+      id: assignment.id,
+      userId: assignment.userId,
+      dockId: assignment.dockId,
+      status: assignment.status,
+      startedAt: assignment.startedAt.toISOString(),
+      endedAt: assignment.endedAt?.toISOString() ?? null,
+      dock: { id: dock.id, name: dock.name, status: dock.status },
+    };
+  }
+
+  async getMyDockAssignment(userId: string) {
+    const assignment = await this.dockAssignmentsRepo.findOne({
+      where: { userId, status: 'ACTIVE' },
+    });
+    if (!assignment) return null;
+    const dock = await this.docksRepo.findOne({
+      where: { id: assignment.dockId },
+    });
+    if (!dock) return null;
+    return this.toAssignmentDto(assignment, dock);
+  }
+
+  async checkInDock(dockId: string, userId: string) {
+    const dock = await this.docksRepo.findOne({ where: { id: dockId } });
+    if (!dock) throw new NotFoundException(`Dock ${dockId} not found`);
+    if (dock.status === 'BLOCKED') {
+      throw new BadRequestException('Dock is blocked');
+    }
+
+    const myActive = await this.dockAssignmentsRepo.findOne({
+      where: { userId, status: 'ACTIVE' },
+    });
+    if (myActive) {
+      if (myActive.dockId === dockId) {
+        return this.toAssignmentDto(myActive, dock);
+      }
+      throw new ConflictException(
+        `Already checked in at dock ${myActive.dockId}. Check out first.`,
       );
+    }
+
+    const dockActive = await this.dockAssignmentsRepo.findOne({
+      where: { dockId, status: 'ACTIVE' },
+    });
+    if (dockActive) {
+      throw new ConflictException(
+        `Dock ${dockId} already has an operator checked in`,
+      );
+    }
+
+    const assignment = await this.dockAssignmentsRepo.save(
+      this.dockAssignmentsRepo.create({
+        id: uid('DA'),
+        userId,
+        dockId,
+        status: 'ACTIVE',
+        startedAt: new Date(),
+        endedAt: null,
+      }),
+    );
+
+    return this.toAssignmentDto(assignment, dock);
+  }
+
+  async checkOutDock(userId: string) {
+    const assignment = await this.dockAssignmentsRepo.findOne({
+      where: { userId, status: 'ACTIVE' },
+    });
+    if (!assignment) {
+      throw new BadRequestException('No active dock assignment');
+    }
+
+    const activeSessions = await this.sessionsRepo.count({
+      where: {
+        dockId: assignment.dockId,
+        status: Not(In(['COMPLETED', 'REJECTED'])),
+      },
+    });
+    if (activeSessions > 0) {
+      throw new ConflictException(
+        `Cannot check out — dock ${assignment.dockId} still has an active receiving session`,
+      );
+    }
+
+    assignment.status = 'ENDED';
+    assignment.endedAt = new Date();
+    await this.dockAssignmentsRepo.save(assignment);
+
+    const dock = await this.docksRepo.findOne({
+      where: { id: assignment.dockId },
+    });
+    if (!dock)
+      throw new NotFoundException(`Dock ${assignment.dockId} not found`);
+    return this.toAssignmentDto(assignment, dock);
   }
 
   listAppointments() {
@@ -276,7 +397,7 @@ export class ReceivingService {
     return this.toSessionDto(session);
   }
 
-  async gateIn(dto: GateInDto) {
+  async gateIn(dto: GateInDto, userId: string) {
     const dock = await this.docksRepo.findOne({ where: { id: dto.dockId } });
     if (!dock) return { ok: false as const, message: 'Dock not found' };
     if (dock.status === 'OCCUPIED') {
@@ -286,11 +407,38 @@ export class ReceivingService {
       return { ok: false as const, message: 'Dock is blocked' };
     }
 
+    const assignment = await this.dockAssignmentsRepo.findOne({
+      where: { userId, status: 'ACTIVE' },
+    });
+    if (!assignment) {
+      return {
+        ok: false as const,
+        message: 'Check in to a dock before gate-in',
+      };
+    }
+    if (assignment.dockId !== dto.dockId) {
+      return {
+        ok: false as const,
+        message: `You are checked in at ${assignment.dockId}, not ${dto.dockId}`,
+      };
+    }
+
+    if (!dto.appointmentId && !dto.asnId) {
+      return {
+        ok: false as const,
+        message: 'appointmentId or asnId is required',
+      };
+    }
+
     const appointment = dto.appointmentId
       ? await this.appointmentsRepo.findOne({
           where: { id: dto.appointmentId },
         })
       : null;
+
+    if (dto.appointmentId && !appointment) {
+      return { ok: false as const, message: 'Appointment not found' };
+    }
 
     if (appointment && appointment.status !== 'BOOKED') {
       return {
@@ -299,7 +447,7 @@ export class ReceivingService {
       };
     }
 
-    let asn = dto.asnId
+    const asn = dto.asnId
       ? await this.asnsRepo.findOne({
           where: { id: dto.asnId },
           relations: { lines: true, pallets: { items: true } },
@@ -311,23 +459,11 @@ export class ReceivingService {
           })
         : null;
 
-    let unknownArrival = false;
-    if (asn) {
-      if (asn.plateNo.toUpperCase() !== dto.plateNo.trim().toUpperCase()) {
-        unknownArrival = true;
-      }
-    } else {
-      const allAsns = await this.asnsRepo.find({
-        relations: { lines: true, pallets: { items: true } },
-      });
-      const plate = dto.plateNo.trim().toUpperCase();
-      const byPlate = allAsns.find((a) => a.plateNo.toUpperCase() === plate);
-      if (byPlate) {
-        asn = byPlate;
-      } else {
-        unknownArrival = true;
-      }
+    if (dto.asnId && !asn) {
+      return { ok: false as const, message: `ASN ${dto.asnId} not found` };
     }
+
+    const unknownArrival = !asn;
 
     if (asn) {
       const gate = canGateInAsn({ status: asn.status as AsnStatus });
@@ -352,7 +488,7 @@ export class ReceivingService {
             dockId: dto.dockId,
             mode: 'CONTAINER',
             status: 'GATE_IN',
-            plateNoEntered: dto.plateNo,
+            plateNoEntered: null,
             unknownArrival: true,
             supervisorApproved: false,
           }),
@@ -376,8 +512,8 @@ export class ReceivingService {
           dockId: dto.dockId,
           mode: asn.type,
           status: 'GATE_IN',
-          plateNoEntered: dto.plateNo,
-          unknownArrival,
+          plateNoEntered: asn.plateNo,
+          unknownArrival: false,
           supervisorApproved: false,
         }),
       );
@@ -394,9 +530,7 @@ export class ReceivingService {
 
     return {
       ok: true as const,
-      message: unknownArrival
-        ? 'Plate mismatch — treat as unknown arrival'
-        : 'Gate-in successful',
+      message: 'Gate-in successful',
       sessionId,
       unknownArrival,
     };

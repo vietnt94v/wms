@@ -3,6 +3,7 @@ export { AsnLine } from './asn-line.entity';
 export { AsnPallet } from './asn-pallet.entity';
 export { Asn } from './asn.entity';
 export { Discrepancy } from './discrepancy.entity';
+export { DockAssignment } from './dock-assignment.entity';
 export { Dock } from './dock.entity';
 export { Inventory } from './inventory.entity';
 export { PalletItem } from './pallet-item.entity';
@@ -21,6 +22,7 @@ import { AsnLine } from './asn-line.entity';
 import { AsnPallet } from './asn-pallet.entity';
 import { Asn } from './asn.entity';
 import { Discrepancy } from './discrepancy.entity';
+import { DockAssignment } from './dock-assignment.entity';
 import { Dock } from './dock.entity';
 import { Inventory } from './inventory.entity';
 import { PalletItem } from './pallet-item.entity';
@@ -42,6 +44,7 @@ export const RECEIVING_ENTITIES = [
   AsnPallet,
   PalletItem,
   Dock,
+  DockAssignment,
   Appointment,
   ReceivingSession,
   SessionReceivedLine,

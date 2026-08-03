@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { AppLink } from '@/components/ui/app-link'
 import { toaster } from '@/components/ui/toaster'
+import { useDockAssignmentStore } from '@/store/dockAssignmentStore'
 import { useReceivingStore } from '@/store/receivingStore'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
@@ -29,8 +30,12 @@ export function DocksPage() {
   const rejectArrival = useReceivingStore((s) => s.rejectArrival)
   const approveUnknownArrival = useReceivingStore((s) => s.approveUnknownArrival)
   const startUnload = useReceivingStore((s) => s.startUnload)
+  const myDockId = useDockAssignmentStore((s) => s.assignment?.dockId)
 
   const schedulable = asns.filter((a) =>
+    ['EXPECTED', 'SCHEDULED'].includes(a.status),
+  )
+  const gateInAsns = asns.filter((a) =>
     ['EXPECTED', 'SCHEDULED'].includes(a.status),
   )
 
@@ -38,9 +43,9 @@ export function DocksPage() {
   const [dockId, setDockId] = useState(docks[0]?.id ?? 'D01')
   const [windowStart, setWindowStart] = useState('')
   const [windowEnd, setWindowEnd] = useState('')
-  const [gateDockId, setGateDockId] = useState(docks[0]?.id ?? 'D01')
+  const [gateDockId, setGateDockId] = useState(myDockId ?? docks[0]?.id ?? 'D01')
   const [gateAptId, setGateAptId] = useState('')
-  const [plateNo, setPlateNo] = useState('')
+  const [gateAsnId, setGateAsnId] = useState(gateInAsns[0]?.id ?? '')
 
   const bookableDocks = docks.filter((d) => d.status !== 'BLOCKED')
 
@@ -61,8 +66,8 @@ export function DocksPage() {
   const handleGateIn = async () => {
     const result = await gateIn({
       appointmentId: gateAptId || undefined,
+      asnId: gateAptId ? undefined : gateAsnId || undefined,
       dockId: gateDockId,
-      plateNo,
     })
     toaster.create({
       title: result.unknownArrival ? 'Unknown arrival' : result.ok ? 'Gate-in' : 'Failed',
@@ -95,6 +100,11 @@ export function DocksPage() {
             >
               <Text fontWeight="bold">{dock.name}</Text>
               <StatusBadge status={dock.status} />
+              {dock.operator && (
+                <Text fontSize="sm" mt="1" color="fg.muted">
+                  Operator: {dock.operator.fullName}
+                </Text>
+              )}
               {session && (
                 <Stack mt="2" gap="1">
                   <Text fontSize="sm">
@@ -200,6 +210,7 @@ export function DocksPage() {
                 {bookableDocks.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} — {d.status}
+                    {d.operator ? ` · ${d.operator.fullName}` : ''}
                   </option>
                 ))}
               </NativeSelect.Field>
@@ -235,6 +246,8 @@ export function DocksPage() {
                 {docks.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} — {d.status}
+                    {d.id === myDockId ? ' (your dock)' : ''}
+                    {d.operator ? ` · ${d.operator.fullName}` : ''}
                   </option>
                 ))}
               </NativeSelect.Field>
@@ -254,17 +267,27 @@ export function DocksPage() {
                   ))}
               </NativeSelect.Field>
             </NativeSelect.Root>
-            <Input
-              placeholder="Plate number on truck"
-              value={plateNo}
-              onChange={(e) => setPlateNo(e.target.value)}
-            />
+            {!gateAptId && (
+              <NativeSelect.Root>
+                <NativeSelect.Field
+                  value={gateAsnId}
+                  onChange={(e) => setGateAsnId(e.target.value)}
+                >
+                  <option value="">Select ASN</option>
+                  {gateInAsns.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.id} ({a.plateNo})
+                    </option>
+                  ))}
+                </NativeSelect.Field>
+              </NativeSelect.Root>
+            )}
             <Button colorPalette="green" onClick={handleGateIn}>
               Gate-in
             </Button>
             <Text fontSize="sm" color="fg.muted">
-              Wrong plate vs appointment → unknown arrival banner (reject or
-              supervisor approve).
+              Plate is taken from the ASN. Gate-in dock must match your checked-in
+              dock.
             </Text>
           </Stack>
         </Box>

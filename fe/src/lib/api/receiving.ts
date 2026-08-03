@@ -4,6 +4,7 @@ import type {
   Discrepancy,
   DiscrepancyResolution,
   Dock,
+  DockAssignment,
   InventoryRecord,
   Product,
   PutawayTask,
@@ -41,6 +42,25 @@ export async function listDocks(): Promise<Dock[]> {
   return data
 }
 
+export async function getMyDockAssignment(): Promise<DockAssignment | null> {
+  const { data } = await apiClient.get<DockAssignment | null>(
+    '/docks/assignments/me',
+  )
+  return data
+}
+
+export async function checkInDock(dockId: string): Promise<DockAssignment> {
+  const { data } = await apiClient.post<DockAssignment>(
+    `/docks/${dockId}/check-in`,
+  )
+  return data
+}
+
+export async function checkOutDock(): Promise<DockAssignment> {
+  const { data } = await apiClient.post<DockAssignment>('/docks/check-out')
+  return data
+}
+
 export async function listAppointments(): Promise<Appointment[]> {
   const { data } = await apiClient.get<Appointment[]>('/appointments')
   return data
@@ -74,7 +94,6 @@ export async function gateIn(input: {
   appointmentId?: string
   asnId?: string
   dockId: string
-  plateNo: string
 }) {
   const { data } = await apiClient.post<{
     ok: boolean

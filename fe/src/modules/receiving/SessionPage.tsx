@@ -55,7 +55,7 @@ export function SessionPage() {
         <Meta label="ASN" value={session.asnId} />
         <Meta label="Dock" value={session.dockId} />
         <Meta label="Mode" value={session.mode} />
-        <Meta label="Plate entered" value={session.plateNoEntered ?? '-'} />
+        <Meta label="Plate (ASN)" value={session.plateNoEntered ?? '-'} />
         <StatusBadge status={session.status} />
       </HStack>
 
@@ -68,8 +68,8 @@ export function SessionPage() {
           </Text>
           <Text mt="1" fontSize="sm">
             {!hasAsn
-              ? 'This session has no ASN. Reject the arrival and gate-in again with a matching appointment/plate. Supervisor approve alone cannot unlock scanning without an ASN.'
-              : 'Truck plate does not match appointment/ASN, or ASN is unknown. Reject delivery or request supervisor exception.'}
+              ? 'This session has no ASN. Reject the arrival and gate-in again with a matching appointment/ASN. Supervisor approve alone cannot unlock scanning without an ASN.'
+              : 'Unscheduled or unknown arrival. Reject delivery or request supervisor exception.'}
           </Text>
           <HStack mt="3">
             <Button

@@ -1,8 +1,14 @@
+import { useState } from 'react'
 import { Box, Button, Flex, Heading, HStack, Stack, Text } from '@chakra-ui/react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { isAxiosError } from 'axios'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { ColorModeButton } from '@/components/ui/color-mode'
+import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
+import { OperatorConfirmDialog } from '@/components/ui/operator-confirm-dialog'
 import { Toaster } from '@/components/ui/toaster'
 import { useAuthStore } from '@/store/authStore'
+import { useDockAssignmentStore } from '@/store/dockAssignmentStore'
+import { useReceivingStore } from '@/store/receivingStore'
 
 const navItems = [
   { to: '/inbound', label: 'Inbound Feed' },
@@ -12,14 +18,58 @@ const navItems = [
   { to: '/packing', label: 'Packing' },
 ]
 
+function errorMessage(error: unknown): string {
+  if (isAxiosError(error)) {
+    const data = error.response?.data as { message?: string | string[] } | undefined
+    const msg = data?.message
+    if (Array.isArray(msg)) return msg.join(', ')
+    if (typeof msg === 'string') return msg
+  }
+  if (error instanceof Error) return error.message
+  return 'Check-out failed'
+}
+
 export function AppLayout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const location = useLocation()
+  const assignment = useDockAssignmentStore((s) => s.assignment)
+  const checkOut = useDockAssignmentStore((s) => s.checkOut)
+  const refreshCore = useReceivingStore((s) => s.refreshCore)
+
+  const [confirmLeave, setConfirmLeave] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [alert, setAlert] = useState<{ title: string; description: string } | null>(
+    null,
+  )
+
+  const showDockControls =
+    location.pathname.startsWith('/receiving') &&
+    !location.pathname.startsWith('/receiving/check-in') &&
+    !!assignment
 
   const handleLogout = async () => {
     await logout()
     navigate('/login', { replace: true })
+  }
+
+  const handleLeaveDock = async () => {
+    setLeaving(true)
+    try {
+      await checkOut()
+      setConfirmLeave(false)
+      await refreshCore().catch(() => undefined)
+      navigate('/receiving/check-in', { replace: true })
+    } catch (error) {
+      setConfirmLeave(false)
+      setAlert({
+        title: 'Cannot leave dock',
+        description: errorMessage(error),
+      })
+    } finally {
+      setLeaving(false)
+    }
   }
 
   return (
@@ -69,6 +119,22 @@ export function AppLayout() {
             Warehouse Management System
           </Text>
           <HStack gap="3">
+            {showDockControls && assignment && (
+              <HStack gap="2">
+                <Text fontSize="sm" fontWeight="medium">
+                  Dock {assignment.dockId}
+                  {assignment.dock.name ? ` — ${assignment.dock.name}` : ''}
+                </Text>
+                <Button
+                  size="xs"
+                  colorPalette="orange"
+                  variant="outline"
+                  onClick={() => setConfirmLeave(true)}
+                >
+                  Leave dock
+                </Button>
+              </HStack>
+            )}
             {user && (
               <Text fontSize="sm" color="fg.muted">
                 {user.fullName} ({user.roles.join(', ')})
@@ -83,6 +149,26 @@ export function AppLayout() {
         <Outlet />
       </Box>
       <Toaster />
+
+      <OperatorConfirmDialog
+        open={confirmLeave}
+        title="Leave dock"
+        description={`Check out from dock ${assignment?.dockId}? You will need to scan a dock again before continuing receiving work.`}
+        confirmLabel="Leave dock"
+        confirmColorPalette="orange"
+        loading={leaving}
+        onConfirm={() => void handleLeaveDock()}
+        onCancel={() => {
+          if (!leaving) setConfirmLeave(false)
+        }}
+      />
+
+      <OperatorAlertDialog
+        open={!!alert}
+        title={alert?.title ?? ''}
+        description={alert?.description ?? ''}
+        onClose={() => setAlert(null)}
+      />
     </Flex>
   )
 }

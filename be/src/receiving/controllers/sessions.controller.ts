@@ -7,7 +7,9 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import * as AuthTypes from '../../auth/types/auth-user.type';
 import {
   GateInDto,
   RejectArrivalDto,
@@ -27,8 +29,8 @@ export class SessionsController {
   }
 
   @Post('gate-in')
-  gateIn(@Body() body: GateInDto) {
-    return this.receivingService.gateIn(body);
+  gateIn(@Body() body: GateInDto, @CurrentUser() user: AuthTypes.AuthUser) {
+    return this.receivingService.gateIn(body, user.id);
   }
 
   @Get(':id')

@@ -11,3 +11,6 @@ databaseChangeLog:
   - include:
       file: changesets/004-receiving-seed.sql
       relativeToChangelogFile: true
+  - include:
+      file: changesets/005-dock-assignments.sql
+      relativeToChangelogFile: true

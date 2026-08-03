@@ -109,7 +109,7 @@ export class AuthService {
       },
       {
         secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-        expiresIn: accessExpiresIn,
+        expiresIn: Math.floor(this.parseDurationMs(accessExpiresIn) / 1000),
       },
     );
 

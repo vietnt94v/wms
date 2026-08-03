@@ -48,7 +48,6 @@ interface ReceivingState {
     appointmentId?: string
     asnId?: string
     dockId: string
-    plateNo: string
   }) => Promise<{
     ok: boolean
     message: string
