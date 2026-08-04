@@ -18,6 +18,39 @@ import type { ScanLineInput } from '@/lib/domain/scan'
 import * as api from '@/lib/api/receiving'
 import { createAsn, type CreateAsnPayload } from '@/lib/api/inbound'
 
+export type ReceivingSlice =
+  | 'asns'
+  | 'docks'
+  | 'appointments'
+  | 'sessions'
+  | 'discrepancies'
+  | 'qcResults'
+  | 'putawayTasks'
+  | 'inventory'
+
+const sliceFetchers: Record<
+  ReceivingSlice,
+  () => Promise<
+    | ASN[]
+    | Dock[]
+    | Appointment[]
+    | ReceivingSession[]
+    | Discrepancy[]
+    | QCResult[]
+    | PutawayTask[]
+    | InventoryRecord[]
+  >
+> = {
+  asns: api.listAsns,
+  docks: api.listDocks,
+  appointments: api.listAppointments,
+  sessions: api.listSessions,
+  discrepancies: api.listDiscrepancies,
+  qcResults: api.listQcResults,
+  putawayTasks: api.listPutawayTasks,
+  inventory: api.listInventory,
+}
+
 interface ReceivingState {
   suppliers: Supplier[]
   products: Product[]
@@ -33,7 +66,7 @@ interface ReceivingState {
   loading: boolean
 
   loadAll: () => Promise<void>
-  refreshCore: () => Promise<void>
+  refreshSlices: (slices: ReceivingSlice[]) => Promise<void>
 
   createAsn: (payload: CreateAsnPayload) => Promise<ASN>
 
@@ -153,136 +186,101 @@ export const useReceivingStore = create<ReceivingState>((set, get) => ({
     }
   },
 
-  refreshCore: async () => {
-    const [
-      asns,
-      docks,
-      appointments,
-      sessions,
-      discrepancies,
-      qcResults,
-      putawayTasks,
-      inventory,
-    ] = await Promise.all([
-      api.listAsns(),
-      api.listDocks(),
-      api.listAppointments(),
-      api.listSessions(),
-      api.listDiscrepancies(),
-      api.listQcResults(),
-      api.listPutawayTasks(),
-      api.listInventory(),
-    ])
-    set({
-      asns,
-      docks,
-      appointments,
-      sessions,
-      discrepancies,
-      qcResults,
-      putawayTasks,
-      inventory,
-    })
+  refreshSlices: async (slices) => {
+    const unique = [...new Set(slices)]
+    if (unique.length === 0) return
+    const results = await Promise.all(unique.map((slice) => sliceFetchers[slice]()))
+    set(
+      Object.fromEntries(unique.map((slice, index) => [slice, results[index]])),
+    )
   },
 
   createAsn: async (payload) => {
     const asn = await createAsn(payload)
-    await get().refreshCore()
+    await get().refreshSlices(['asns'])
     return asn
   },
 
   scheduleAppointment: async (input) => {
     const result = await api.scheduleAppointment(input)
-    if (result.ok) await get().refreshCore()
+    if (result.ok) await get().refreshSlices(['appointments', 'asns'])
     return result
   },
 
   gateIn: async (input) => {
     const result = await api.gateIn(input)
-    if (result.ok) await get().refreshCore()
+    if (result.ok) {
+      await get().refreshSlices(['sessions', 'asns', 'docks', 'appointments'])
+    }
     return result
   },
 
   rejectArrival: async (sessionId, reason) => {
     await api.rejectArrival(sessionId, reason)
-    await get().refreshCore()
+    await get().refreshSlices(['sessions', 'asns', 'docks'])
   },
 
   approveUnknownArrival: async (sessionId) => {
     await api.approveUnknownArrival(sessionId)
-    await get().refreshCore()
+    await get().refreshSlices(['sessions', 'asns'])
   },
 
   startUnload: async (sessionId) => {
     await api.startUnload(sessionId)
-    await get().refreshCore()
+    await get().refreshSlices(['sessions'])
   },
 
   startReceiving: async (sessionId) => {
     await api.startReceiving(sessionId)
-    await get().refreshCore()
+    await get().refreshSlices(['sessions'])
   },
 
   scan: async (input) => {
     const { sessionId, ...body } = input
     const event = await api.scan(sessionId, body)
-    if (input.confirm) await get().refreshCore()
+    if (input.confirm) await get().refreshSlices(['sessions', 'asns'])
     return event
   },
 
   finishReceiving: async (sessionId) => {
     const result = await api.finishReceiving(sessionId)
-    if (result.ok) await get().refreshCore()
+    if (result.ok) {
+      await get().refreshSlices(['sessions', 'asns', 'discrepancies'])
+    }
     return result
   },
 
   submitQc: async (input) => {
     const { sessionId, ...body } = input
     const result = await api.submitQc(sessionId, body)
-    if (result.ok) await get().refreshCore()
+    if (result.ok) await get().refreshSlices(['qcResults', 'sessions'])
     return result
   },
 
   resolveDiscrepancy: async (id, resolution, note) => {
     await api.resolveDiscrepancy(id, resolution, note)
-    await get().refreshCore()
+    await get().refreshSlices(['discrepancies'])
   },
 
   generatePutawayTasks: async (sessionId) => {
     await api.generatePutawayTasks(sessionId)
-    const [putawayTasks, sessions, asns] = await Promise.all([
-      api.listPutawayTasks(),
-      api.listSessions(),
-      api.listAsns(),
-    ])
-    set({ putawayTasks, sessions, asns })
+    await get().refreshSlices(['putawayTasks', 'sessions', 'asns'])
   },
 
   confirmPutaway: async (taskId) => {
     const task = get().putawayTasks.find((t) => t.id === taskId)
     await api.confirmPutaway(taskId)
-
-    const [putawayTasks, inventory, sessions] = await Promise.all([
-      api.listPutawayTasks(),
-      api.listInventory(),
-      api.listSessions(),
-    ])
+    await get().refreshSlices(['putawayTasks', 'inventory', 'sessions'])
 
     const sessionId = task?.sessionId
-    const sessionComplete =
-      sessionId !== undefined &&
-      putawayTasks
-        .filter((t) => t.sessionId === sessionId)
-        .every((t) => t.status === 'CONFIRMED')
+    if (sessionId === undefined) return
+
+    const sessionComplete = get()
+      .putawayTasks.filter((t) => t.sessionId === sessionId)
+      .every((t) => t.status === 'CONFIRMED')
 
     if (sessionComplete) {
-      const [asns, docks] = await Promise.all([
-        api.listAsns(),
-        api.listDocks(),
-      ])
-      set({ putawayTasks, inventory, sessions, asns, docks })
-    } else {
-      set({ putawayTasks, inventory, sessions })
+      await get().refreshSlices(['asns', 'docks'])
     }
   },
 }))

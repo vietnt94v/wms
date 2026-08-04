@@ -36,7 +36,7 @@ export function AppLayout() {
   const location = useLocation()
   const assignment = useDockAssignmentStore((s) => s.assignment)
   const checkOut = useDockAssignmentStore((s) => s.checkOut)
-  const refreshCore = useReceivingStore((s) => s.refreshCore)
+  const refreshSlices = useReceivingStore((s) => s.refreshSlices)
 
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -59,7 +59,7 @@ export function AppLayout() {
     try {
       await checkOut()
       setConfirmLeave(false)
-      await refreshCore().catch(() => undefined)
+      await refreshSlices(['docks']).catch(() => undefined)
       navigate('/receiving/check-in', { replace: true })
     } catch (error) {
       setConfirmLeave(false)

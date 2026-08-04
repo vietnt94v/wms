@@ -30,7 +30,7 @@ function errorMessage(error: unknown): string {
 export function DockCheckInPage() {
   const navigate = useNavigate()
   const docks = useReceivingStore((s) => s.docks)
-  const refreshCore = useReceivingStore((s) => s.refreshCore)
+  const refreshSlices = useReceivingStore((s) => s.refreshSlices)
   const assignment = useDockAssignmentStore((s) => s.assignment)
   const loaded = useDockAssignmentStore((s) => s.loaded)
   const checkIn = useDockAssignmentStore((s) => s.checkIn)
@@ -80,7 +80,7 @@ export function DockCheckInPage() {
     setSubmitting(true)
     try {
       await checkIn(pendingDockId)
-      await refreshCore().catch(() => undefined)
+      await refreshSlices(['docks']).catch(() => undefined)
       setPendingDockId(null)
       setCode('')
       navigate('/receiving', { replace: true })
