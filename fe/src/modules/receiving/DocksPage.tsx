@@ -15,21 +15,32 @@ import { FormInput } from '@/components/ui/form-input'
 import { FormSelect } from '@/components/ui/form-select'
 import { toaster } from '@/components/ui/toaster'
 import { useDockAssignmentStore } from '@/store/dockAssignmentStore'
-import { useReceivingStore } from '@/store/receivingStore'
+import { QueryLoading } from '@/components/ui/query-loading'
+import {
+  useApproveUnknownArrivalMutation,
+  useAsns,
+  useDocks,
+  useAppointments,
+  useGateInMutation,
+  useRejectArrivalMutation,
+  useScheduleAppointmentMutation,
+  useSessions,
+  useStartUnloadMutation,
+} from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function DocksPage() {
   const navigate = useNavigate()
-  const docks = useReceivingStore((s) => s.docks)
-  const asns = useReceivingStore((s) => s.asns)
-  const appointments = useReceivingStore((s) => s.appointments)
-  const sessions = useReceivingStore((s) => s.sessions)
-  const scheduleAppointment = useReceivingStore((s) => s.scheduleAppointment)
-  const gateIn = useReceivingStore((s) => s.gateIn)
-  const rejectArrival = useReceivingStore((s) => s.rejectArrival)
-  const approveUnknownArrival = useReceivingStore((s) => s.approveUnknownArrival)
-  const startUnload = useReceivingStore((s) => s.startUnload)
+  const { data: docks = [], isLoading: docksLoading } = useDocks()
+  const { data: asns = [], isLoading: asnsLoading } = useAsns()
+  const { data: appointments = [], isLoading: appointmentsLoading } = useAppointments()
+  const { data: sessions = [], isLoading: sessionsLoading } = useSessions()
+  const { mutateAsync: scheduleAppointment } = useScheduleAppointmentMutation()
+  const { mutateAsync: gateIn } = useGateInMutation()
+  const { mutateAsync: rejectArrival } = useRejectArrivalMutation()
+  const { mutateAsync: approveUnknownArrival } = useApproveUnknownArrivalMutation()
+  const { mutateAsync: startUnload } = useStartUnloadMutation()
   const myDockId = useDockAssignmentStore((s) => s.assignment?.dockId)
 
   const schedulable = asns.filter((a) =>
@@ -46,6 +57,10 @@ export function DocksPage() {
   const [gateDockId, setGateDockId] = useState(myDockId ?? docks[0]?.id ?? 'D01')
   const [gateAptId, setGateAptId] = useState('')
   const [gateAsnId, setGateAsnId] = useState(gateInAsns[0]?.id ?? '')
+
+  if (docksLoading || asnsLoading || appointmentsLoading || sessionsLoading) {
+    return <QueryLoading />
+  }
 
   const bookableDocks = docks.filter((d) => d.status !== 'BLOCKED')
 

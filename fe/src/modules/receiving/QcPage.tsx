@@ -12,20 +12,26 @@ import { FormInput } from '@/components/ui/form-input'
 import { FormSelect } from '@/components/ui/form-select'
 import { FormTextarea } from '@/components/ui/form-textarea'
 import { toaster } from '@/components/ui/toaster'
+import { QueryLoading } from '@/components/ui/query-loading'
 import {
   getQcResultForSku,
   pendingQcSkus,
   receivedSkus,
 } from '@/lib/domain/receiving'
-import { useReceivingStore } from '@/store/receivingStore'
+import {
+  useGeneratePutawayTasksMutation,
+  useQcResults,
+  useSessions,
+  useSubmitQcMutation,
+} from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function QcPage() {
-  const sessions = useReceivingStore((s) => s.sessions)
-  const qcResults = useReceivingStore((s) => s.qcResults)
-  const submitQc = useReceivingStore((s) => s.submitQc)
-  const generatePutawayTasks = useReceivingStore((s) => s.generatePutawayTasks)
+  const { data: sessions = [], isLoading: sessionsLoading } = useSessions()
+  const { data: qcResults = [], isLoading: qcLoading } = useQcResults()
+  const { mutateAsync: submitQc } = useSubmitQcMutation()
+  const { mutateAsync: generatePutawayTasks } = useGeneratePutawayTasksMutation()
 
   const qcSessions = sessions.filter((s) =>
     ['QC', 'DISCREPANCY', 'PUTAWAY'].includes(s.status),
@@ -46,6 +52,10 @@ export function QcPage() {
   const [sku, setSku] = useState('')
   const [sampleQty, setSampleQty] = useState('1')
   const [reason, setReason] = useState('')
+
+  if (sessionsLoading || qcLoading) {
+    return <QueryLoading />
+  }
 
   const activeSku = sku || pendingSkus[0] || skus[0] || ''
   const existingQc =

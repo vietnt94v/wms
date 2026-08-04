@@ -1,15 +1,25 @@
 import type { ReactNode } from 'react'
 import { Box, Button, Heading, Stack, Table, Text } from '@chakra-ui/react'
 import { toaster } from '@/components/ui/toaster'
-import { useReceivingStore } from '@/store/receivingStore'
+import { QueryLoading } from '@/components/ui/query-loading'
+import {
+  useConfirmPutawayMutation,
+  useGeneratePutawayTasksMutation,
+  usePutawayTasks,
+  useSessions,
+} from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function PutawayTasksPage() {
-  const putawayTasks = useReceivingStore((s) => s.putawayTasks)
-  const sessions = useReceivingStore((s) => s.sessions)
-  const generatePutawayTasks = useReceivingStore((s) => s.generatePutawayTasks)
-  const confirmPutaway = useReceivingStore((s) => s.confirmPutaway)
+  const { data: putawayTasks = [], isLoading: tasksLoading } = usePutawayTasks()
+  const { data: sessions = [], isLoading: sessionsLoading } = useSessions()
+  const { mutateAsync: generatePutawayTasks } = useGeneratePutawayTasksMutation()
+  const { mutateAsync: confirmPutaway } = useConfirmPutawayMutation()
+
+  if (tasksLoading || sessionsLoading) {
+    return <QueryLoading />
+  }
 
   const readySessions = sessions.filter((s) =>
     ['PUTAWAY', 'DISCREPANCY', 'QC', 'COMPLETED'].includes(s.status),

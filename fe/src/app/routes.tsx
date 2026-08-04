@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './AppLayout'
-import { DataLoader } from './DataLoader'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { DockAssignmentGuard } from '@/components/receiving/DockAssignmentGuard'
 import { LoginPage } from '@/modules/auth/LoginPage'
@@ -60,44 +59,42 @@ export function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DockAssignmentBootstrap />}>
             <Route element={<AppLayout />}>
-              <Route element={<DataLoader />}>
-                <Route index element={<Navigate to="/receiving" replace />} />
-                <Route path="inbound" element={<InboundPage />} />
+              <Route index element={<Navigate to="/receiving" replace />} />
+              <Route path="inbound" element={<InboundPage />} />
+              <Route
+                path="receiving/check-in"
+                element={<DockCheckInPage />}
+              />
+              <Route element={<DockAssignmentGuard />}>
+                <Route path="receiving" element={<ReceivingHome />} />
                 <Route
-                  path="receiving/check-in"
-                  element={<DockCheckInPage />}
+                  path="receiving/dashboard"
+                  element={<ReceivingDashboard />}
                 />
-                <Route element={<DockAssignmentGuard />}>
-                  <Route path="receiving" element={<ReceivingHome />} />
-                  <Route
-                    path="receiving/dashboard"
-                    element={<ReceivingDashboard />}
-                  />
-                  <Route path="receiving/asn" element={<AsnListPage />} />
-                  <Route path="receiving/asn/:id" element={<AsnDetailPage />} />
-                  <Route path="receiving/docks" element={<DocksPage />} />
-                  <Route
-                    path="receiving/sessions/:id"
-                    element={<SessionPage />}
-                  />
-                  <Route path="receiving/qc" element={<QcPage />} />
-                  <Route
-                    path="receiving/discrepancies"
-                    element={<DiscrepanciesPage />}
-                  />
-                  <Route
-                    path="receiving/putaway-tasks"
-                    element={<PutawayTasksPage />}
-                  />
-                  <Route
-                    path="receiving/inventory"
-                    element={<InventoryPage />}
-                  />
-                </Route>
-                <Route path="putaway" element={<PutawayPage />} />
-                <Route path="picking" element={<PickingPage />} />
-                <Route path="packing" element={<PackingPage />} />
+                <Route path="receiving/asn" element={<AsnListPage />} />
+                <Route path="receiving/asn/:id" element={<AsnDetailPage />} />
+                <Route path="receiving/docks" element={<DocksPage />} />
+                <Route
+                  path="receiving/sessions/:id"
+                  element={<SessionPage />}
+                />
+                <Route path="receiving/qc" element={<QcPage />} />
+                <Route
+                  path="receiving/discrepancies"
+                  element={<DiscrepanciesPage />}
+                />
+                <Route
+                  path="receiving/putaway-tasks"
+                  element={<PutawayTasksPage />}
+                />
+                <Route
+                  path="receiving/inventory"
+                  element={<InventoryPage />}
+                />
               </Route>
+              <Route path="putaway" element={<PutawayPage />} />
+              <Route path="picking" element={<PickingPage />} />
+              <Route path="packing" element={<PackingPage />} />
             </Route>
           </Route>
         </Route>

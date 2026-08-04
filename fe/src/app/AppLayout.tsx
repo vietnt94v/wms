@@ -6,9 +6,10 @@ import { ColorModeButton } from '@/components/ui/color-mode'
 import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
 import { OperatorConfirmDialog } from '@/components/ui/operator-confirm-dialog'
 import { Toaster } from '@/components/ui/toaster'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import { useDockAssignmentStore } from '@/store/dockAssignmentStore'
-import { useReceivingStore } from '@/store/receivingStore'
+import { receivingKeys } from '@/lib/query/keys'
 
 const navItems = [
   { to: '/inbound', label: 'Inbound Feed' },
@@ -36,7 +37,7 @@ export function AppLayout() {
   const location = useLocation()
   const assignment = useDockAssignmentStore((s) => s.assignment)
   const checkOut = useDockAssignmentStore((s) => s.checkOut)
-  const refreshSlices = useReceivingStore((s) => s.refreshSlices)
+  const queryClient = useQueryClient()
 
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -59,7 +60,7 @@ export function AppLayout() {
     try {
       await checkOut()
       setConfirmLeave(false)
-      await refreshSlices(['docks']).catch(() => undefined)
+      void queryClient.invalidateQueries({ queryKey: receivingKeys.docks() })
       navigate('/receiving/check-in', { replace: true })
     } catch (error) {
       setConfirmLeave(false)

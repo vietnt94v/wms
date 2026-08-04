@@ -1,16 +1,22 @@
 import { Box, Heading, SimpleGrid, Stack, Table, Text } from '@chakra-ui/react'
 import { useParams } from 'react-router-dom'
 import { AppLink } from '@/components/ui/app-link'
-import { useReceivingStore } from '@/store/receivingStore'
+import { QueryLoading } from '@/components/ui/query-loading'
+import { useAsns, useSuppliers } from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function AsnDetailPage() {
   const { id } = useParams()
-  const asn = useReceivingStore((s) => s.asns.find((a) => a.id === id))
-  const supplier = useReceivingStore((s) =>
-    asn ? s.suppliers.find((x) => x.id === asn.supplierId) : undefined,
-  )
+  const { data: asns = [], isLoading: asnsLoading } = useAsns()
+  const { data: suppliers = [], isLoading: suppliersLoading } = useSuppliers()
+
+  if (asnsLoading || suppliersLoading) {
+    return <QueryLoading />
+  }
+
+  const asn = asns.find((a) => a.id === id)
+  const supplier = asn ? suppliers.find((x) => x.id === asn.supplierId) : undefined
 
   if (!asn) {
     return (

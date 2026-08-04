@@ -1,10 +1,15 @@
 import { Box, Heading, Stack, Table, Text } from '@chakra-ui/react'
-import { useReceivingStore } from '@/store/receivingStore'
+import { QueryLoading } from '@/components/ui/query-loading'
+import { useInventory, useProducts } from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 
 export function InventoryPage() {
-  const inventory = useReceivingStore((s) => s.inventory)
-  const products = useReceivingStore((s) => s.products)
+  const { data: inventory = [], isLoading: inventoryLoading } = useInventory()
+  const { data: products = [], isLoading: productsLoading } = useProducts()
+
+  if (inventoryLoading || productsLoading) {
+    return <QueryLoading />
+  }
 
   return (
     <Stack gap="4">

@@ -2,14 +2,19 @@ import { Box, Heading, Stack, Table, Text } from '@chakra-ui/react'
 import { useNavigate } from 'react-router-dom'
 import { AppLink } from '@/components/ui/app-link'
 import { ClickableTableRow } from '@/components/ui/clickable-table-row'
-import { useReceivingStore } from '@/store/receivingStore'
+import { QueryLoading } from '@/components/ui/query-loading'
+import { useAsns, useSuppliers } from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function AsnListPage() {
   const navigate = useNavigate()
-  const asns = useReceivingStore((s) => s.asns)
-  const suppliers = useReceivingStore((s) => s.suppliers)
+  const { data: asns = [], isLoading: asnsLoading } = useAsns()
+  const { data: suppliers = [], isLoading: suppliersLoading } = useSuppliers()
+
+  if (asnsLoading || suppliersLoading) {
+    return <QueryLoading />
+  }
 
   return (
     <Stack gap="4">

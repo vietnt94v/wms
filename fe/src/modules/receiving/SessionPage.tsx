@@ -9,8 +9,17 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { AppLink } from '@/components/ui/app-link'
 import { toaster } from '@/components/ui/toaster'
+import { QueryLoading } from '@/components/ui/query-loading'
 import { canFinishReceiving } from '@/lib/domain/receiving'
-import { useReceivingStore } from '@/store/receivingStore'
+import {
+  useApproveUnknownArrivalMutation,
+  useAsns,
+  useFinishReceivingMutation,
+  useRejectArrivalMutation,
+  useSessions,
+  useStartReceivingMutation,
+  useStartUnloadMutation,
+} from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { ScanWorkspace } from './ScanWorkspace'
 import { StatusBadge } from './StatusBadge'
@@ -18,15 +27,20 @@ import { StatusBadge } from './StatusBadge'
 export function SessionPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const session = useReceivingStore((s) => s.sessions.find((x) => x.id === id))
-  const asn = useReceivingStore((s) =>
-    session ? s.asns.find((a) => a.id === session.asnId) : undefined,
-  )
-  const startUnload = useReceivingStore((s) => s.startUnload)
-  const startReceiving = useReceivingStore((s) => s.startReceiving)
-  const finishReceiving = useReceivingStore((s) => s.finishReceiving)
-  const rejectArrival = useReceivingStore((s) => s.rejectArrival)
-  const approveUnknownArrival = useReceivingStore((s) => s.approveUnknownArrival)
+  const { data: sessions = [], isLoading: sessionsLoading } = useSessions()
+  const { data: asns = [], isLoading: asnsLoading } = useAsns()
+  const { mutateAsync: startUnload } = useStartUnloadMutation()
+  const { mutateAsync: startReceiving } = useStartReceivingMutation()
+  const { mutateAsync: finishReceiving } = useFinishReceivingMutation()
+  const { mutateAsync: rejectArrival } = useRejectArrivalMutation()
+  const { mutateAsync: approveUnknownArrival } = useApproveUnknownArrivalMutation()
+
+  if (sessionsLoading || asnsLoading) {
+    return <QueryLoading />
+  }
+
+  const session = sessions.find((x) => x.id === id)
+  const asn = session ? asns.find((a) => a.id === session.asnId) : undefined
 
   if (!session) {
     return (

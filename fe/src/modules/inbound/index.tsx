@@ -13,12 +13,16 @@ import { FormSelect } from '@/components/ui/form-select'
 import { FormTextarea } from '@/components/ui/form-textarea'
 import { toaster } from '@/components/ui/toaster'
 import { uid, type AsnType } from '@/lib/domain/receiving'
-import { useReceivingStore } from '@/store/receivingStore'
+import {
+  useCreateAsnMutation,
+  useProducts,
+  useSuppliers,
+} from '@/lib/query/receiving'
 
 export function InboundPage() {
-  const products = useReceivingStore((s) => s.products)
-  const suppliers = useReceivingStore((s) => s.suppliers)
-  const createAsn = useReceivingStore((s) => s.createAsn)
+  const { data: products = [] } = useProducts()
+  const { data: suppliers = [] } = useSuppliers()
+  const { mutateAsync: createAsn } = useCreateAsnMutation()
 
   const [asnId, setAsnId] = useState(() => `ASN-${Date.now().toString().slice(-6)}`)
   const [supplierId, setSupplierId] = useState(suppliers[0]?.id ?? 'SUP-01')

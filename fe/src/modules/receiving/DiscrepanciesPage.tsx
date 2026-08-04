@@ -8,8 +8,13 @@ import {
   Text,
 } from '@chakra-ui/react'
 import { toaster } from '@/components/ui/toaster'
+import { QueryLoading } from '@/components/ui/query-loading'
 import type { DiscrepancyResolution } from '@/lib/domain/receiving'
-import { useReceivingStore } from '@/store/receivingStore'
+import {
+  useDiscrepancies,
+  useGeneratePutawayTasksMutation,
+  useResolveDiscrepancyMutation,
+} from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
@@ -22,9 +27,13 @@ const actions: Array<{ resolution: DiscrepancyResolution; label: string; color: 
 ]
 
 export function DiscrepanciesPage() {
-  const discrepancies = useReceivingStore((s) => s.discrepancies)
-  const resolveDiscrepancy = useReceivingStore((s) => s.resolveDiscrepancy)
-  const generatePutawayTasks = useReceivingStore((s) => s.generatePutawayTasks)
+  const { data: discrepancies = [], isLoading } = useDiscrepancies()
+  const { mutateAsync: resolveDiscrepancy } = useResolveDiscrepancyMutation()
+  const { mutateAsync: generatePutawayTasks } = useGeneratePutawayTasksMutation()
+
+  if (isLoading) {
+    return <QueryLoading />
+  }
 
   return (
     <Stack gap="4">

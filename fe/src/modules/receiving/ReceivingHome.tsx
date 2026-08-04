@@ -10,7 +10,15 @@ import {
 } from 'react-icons/lu'
 import { Badge, Box, Heading, HStack, Icon, SimpleGrid, Stack, Text } from '@chakra-ui/react'
 import { Link } from 'react-router-dom'
-import { useReceivingStore } from '@/store/receivingStore'
+import { QueryLoading } from '@/components/ui/query-loading'
+import {
+  useAsns,
+  useDiscrepancies,
+  useDocks,
+  useInventory,
+  usePutawayTasks,
+  useSessions,
+} from '@/lib/query/receiving'
 
 type MenuItem = {
   to: string
@@ -22,12 +30,23 @@ type MenuItem = {
 }
 
 export function ReceivingHome() {
-  const asns = useReceivingStore((s) => s.asns)
-  const docks = useReceivingStore((s) => s.docks)
-  const sessions = useReceivingStore((s) => s.sessions)
-  const discrepancies = useReceivingStore((s) => s.discrepancies)
-  const putawayTasks = useReceivingStore((s) => s.putawayTasks)
-  const inventory = useReceivingStore((s) => s.inventory)
+  const { data: asns = [], isLoading: asnsLoading } = useAsns()
+  const { data: docks = [], isLoading: docksLoading } = useDocks()
+  const { data: sessions = [], isLoading: sessionsLoading } = useSessions()
+  const { data: discrepancies = [], isLoading: discLoading } = useDiscrepancies()
+  const { data: putawayTasks = [], isLoading: tasksLoading } = usePutawayTasks()
+  const { data: inventory = [], isLoading: inventoryLoading } = useInventory()
+
+  if (
+    asnsLoading ||
+    docksLoading ||
+    sessionsLoading ||
+    discLoading ||
+    tasksLoading ||
+    inventoryLoading
+  ) {
+    return <QueryLoading />
+  }
 
   const occupied = docks.filter((d) => d.status === 'OCCUPIED').length
   const pendingDisc = discrepancies.filter((d) => d.resolution === 'PENDING').length

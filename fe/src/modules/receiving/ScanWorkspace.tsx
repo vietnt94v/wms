@@ -25,7 +25,7 @@ import {
   type ReceivingSession,
 } from '@/lib/domain/receiving'
 import { validateScan, type ScanLineInput } from '@/lib/domain/scan'
-import { useReceivingStore } from '@/store/receivingStore'
+import { useProducts, useScanMutation } from '@/lib/query/receiving'
 
 interface Props {
   session: ReceivingSession
@@ -33,8 +33,8 @@ interface Props {
 }
 
 export function ScanWorkspace({ session, asn }: Props) {
-  const products = useReceivingStore((s) => s.products)
-  const scan = useReceivingStore((s) => s.scan)
+  const { data: products = [] } = useProducts()
+  const { mutateAsync: scan } = useScanMutation()
 
   const [code, setCode] = useState('')
   const [lot, setLot] = useState('')

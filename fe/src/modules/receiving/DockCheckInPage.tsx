@@ -13,8 +13,10 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { FormInput } from '@/components/ui/form-input'
 import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
 import { OperatorConfirmDialog } from '@/components/ui/operator-confirm-dialog'
+import { useQueryClient } from '@tanstack/react-query'
 import { useDockAssignmentStore } from '@/store/dockAssignmentStore'
-import { useReceivingStore } from '@/store/receivingStore'
+import { receivingKeys } from '@/lib/query/keys'
+import { useDocks } from '@/lib/query/receiving'
 
 function errorMessage(error: unknown): string {
   if (isAxiosError(error)) {
@@ -29,8 +31,8 @@ function errorMessage(error: unknown): string {
 
 export function DockCheckInPage() {
   const navigate = useNavigate()
-  const docks = useReceivingStore((s) => s.docks)
-  const refreshSlices = useReceivingStore((s) => s.refreshSlices)
+  const { data: docks = [] } = useDocks()
+  const queryClient = useQueryClient()
   const assignment = useDockAssignmentStore((s) => s.assignment)
   const loaded = useDockAssignmentStore((s) => s.loaded)
   const checkIn = useDockAssignmentStore((s) => s.checkIn)
@@ -80,7 +82,7 @@ export function DockCheckInPage() {
     setSubmitting(true)
     try {
       await checkIn(pendingDockId)
-      await refreshSlices(['docks']).catch(() => undefined)
+      void queryClient.invalidateQueries({ queryKey: receivingKeys.docks() })
       setPendingDockId(null)
       setCode('')
       navigate('/receiving', { replace: true })

@@ -2,16 +2,21 @@ import { Box, Heading, HStack, SimpleGrid, Stack, Table, Text } from '@chakra-ui
 import { useNavigate } from 'react-router-dom'
 import { AppLink } from '@/components/ui/app-link'
 import { ClickableTableRow } from '@/components/ui/clickable-table-row'
-import { useReceivingStore } from '@/store/receivingStore'
+import { QueryLoading } from '@/components/ui/query-loading'
+import { useAsns, useDiscrepancies, useDocks, useSessions } from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
 import { StatusBadge } from './StatusBadge'
 
 export function ReceivingDashboard() {
   const navigate = useNavigate()
-  const asns = useReceivingStore((s) => s.asns)
-  const docks = useReceivingStore((s) => s.docks)
-  const sessions = useReceivingStore((s) => s.sessions)
-  const discrepancies = useReceivingStore((s) => s.discrepancies)
+  const { data: asns = [], isLoading: asnsLoading } = useAsns()
+  const { data: docks = [], isLoading: docksLoading } = useDocks()
+  const { data: sessions = [], isLoading: sessionsLoading } = useSessions()
+  const { data: discrepancies = [], isLoading: discLoading } = useDiscrepancies()
+
+  if (asnsLoading || docksLoading || sessionsLoading || discLoading) {
+    return <QueryLoading />
+  }
 
   const occupied = docks.filter((d) => d.status === 'OCCUPIED').length
   const pendingDisc = discrepancies.filter((d) => d.resolution === 'PENDING').length
