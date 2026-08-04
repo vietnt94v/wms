@@ -97,7 +97,6 @@ export type DiscrepancyResolution =
   | 'QUARANTINE'
   | 'CLAIM_SUPPLIER'
 
-export type PutawayTaskStatus = 'PENDING' | 'CONFIRMED'
 export type ScanResult = 'OK' | 'WARN' | 'BLOCK'
 
 export interface Supplier {
@@ -234,18 +233,6 @@ export interface QCResult {
   sampleQty: number
   pass: boolean
   reason?: string
-}
-
-export interface PutawayTask {
-  id: string
-  sessionId: string
-  asnId: string
-  sscc?: string
-  sku: string
-  qty: number
-  suggestedLocation: string
-  status: PutawayTaskStatus
-  quarantine: boolean
 }
 
 export interface InventoryRecord {

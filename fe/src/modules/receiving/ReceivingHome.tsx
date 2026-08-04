@@ -11,12 +11,12 @@ import {
 import { Badge, Box, Heading, HStack, Icon, SimpleGrid, Stack, Text } from '@chakra-ui/react'
 import { Link } from 'react-router-dom'
 import { QueryLoading } from '@/components/ui/query-loading'
+import { usePutawayTasks } from '@/lib/query/putaway'
 import {
   useAsns,
   useDiscrepancies,
   useDocks,
   useInventory,
-  usePutawayTasks,
   useSessions,
 } from '@/lib/query/receiving'
 
@@ -94,9 +94,9 @@ export function ReceivingHome() {
       badge: `${pendingDisc} pending`,
     },
     {
-      to: '/receiving/putaway-tasks',
-      label: 'Putaway Tasks',
-      description: 'Putaway tasks generated from receiving',
+      to: '/putaway',
+      label: 'Putaway',
+      description: 'Load handling units onto the conveyor',
       icon: LuBoxes,
       accent: 'teal',
       badge: `${openTasks} open`,

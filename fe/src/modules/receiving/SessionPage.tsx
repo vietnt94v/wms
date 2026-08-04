@@ -173,7 +173,7 @@ export function SessionPage() {
             Continue at{' '}
             <AppLink to="/receiving/qc">QC</AppLink> /{' '}
             <AppLink to="/receiving/discrepancies">Discrepancies</AppLink> /{' '}
-            <AppLink to="/receiving/putaway-tasks">Putaway</AppLink>
+            <AppLink to="/putaway">Putaway</AppLink>
           </Text>
         )}
       </HStack>

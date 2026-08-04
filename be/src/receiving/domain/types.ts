@@ -262,8 +262,3 @@ export function canFinishReceiving(session: ReceivingSessionDto): {
   }
   return { ok: true, message: 'Ready to close receiving' };
 }
-
-export function suggestLocation(sku: string, quarantine: boolean): string {
-  if (quarantine) return `QUA-${sku.slice(-3)}-01`;
-  return `A-${sku.slice(-3)}-01`;
-}

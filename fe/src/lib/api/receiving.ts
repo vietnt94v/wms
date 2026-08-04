@@ -7,7 +7,6 @@ import type {
   DockAssignment,
   InventoryRecord,
   Product,
-  PutawayTask,
   QCResult,
   ReceiptVarianceReasonId,
   ReceivingSession,
@@ -193,21 +192,6 @@ export async function resolveDiscrepancy(
     resolution,
     note,
   })
-  return data
-}
-
-export async function generatePutawayTasks(sessionId: string) {
-  const { data } = await apiClient.post(`/sessions/${sessionId}/putaway-tasks`)
-  return data
-}
-
-export async function confirmPutaway(taskId: string) {
-  const { data } = await apiClient.patch(`/putaway-tasks/${taskId}/confirm`)
-  return data
-}
-
-export async function listPutawayTasks(): Promise<PutawayTask[]> {
-  const { data } = await apiClient.get<PutawayTask[]>('/putaway-tasks')
   return data
 }
 

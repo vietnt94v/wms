@@ -73,13 +73,6 @@ export function useQcResults() {
   })
 }
 
-export function usePutawayTasks() {
-  return useQuery({
-    queryKey: receivingKeys.putawayTasks(),
-    queryFn: api.listPutawayTasks,
-  })
-}
-
 export function useInventory() {
   return useQuery({
     queryKey: receivingKeys.inventory(),
@@ -185,6 +178,7 @@ export function useFinishReceivingMutation() {
 }
 
 export function useSubmitQcMutation() {
+  const queryClient = useQueryClient()
   const invalidate = useInvalidateReceiving()
   return useMutation({
     mutationFn: ({
@@ -198,12 +192,16 @@ export function useSubmitQcMutation() {
       reason?: string
     }) => api.submitQc(sessionId, body),
     onSuccess: (result) => {
-      if (result.ok) invalidate(['qcResults', 'sessions'])
+      if (result.ok) {
+        invalidate(['qcResults', 'sessions', 'discrepancies', 'asns'])
+        void queryClient.invalidateQueries({ queryKey: ['putaway'] })
+      }
     },
   })
 }
 
 export function useResolveDiscrepancyMutation() {
+  const queryClient = useQueryClient()
   const invalidate = useInvalidateReceiving()
   return useMutation({
     mutationFn: ({
@@ -215,46 +213,9 @@ export function useResolveDiscrepancyMutation() {
       resolution: DiscrepancyResolution
       note?: string
     }) => api.resolveDiscrepancy(id, resolution, note),
-    onSuccess: () => invalidate(['discrepancies']),
-  })
-}
-
-export function useGeneratePutawayTasksMutation() {
-  const invalidate = useInvalidateReceiving()
-  return useMutation({
-    mutationFn: (sessionId: string) => api.generatePutawayTasks(sessionId),
-    onSuccess: () => invalidate(['putawayTasks', 'sessions', 'asns']),
-  })
-}
-
-export function useConfirmPutawayMutation() {
-  const queryClient = useQueryClient()
-  const invalidate = useInvalidateReceiving()
-  return useMutation({
-    mutationFn: (taskId: string) => api.confirmPutaway(taskId),
-    onSuccess: async (_result, taskId) => {
-      const tasksBefore = queryClient.getQueryData<Awaited<
-        ReturnType<typeof api.listPutawayTasks>
-      >>(receivingKeys.putawayTasks())
-      const task = tasksBefore?.find((t) => t.id === taskId)
-      const sessionId = task?.sessionId
-
-      invalidate(['putawayTasks', 'inventory', 'sessions'])
-
-      if (sessionId === undefined) return
-
-      const updatedTasks = await queryClient.fetchQuery({
-        queryKey: receivingKeys.putawayTasks(),
-        queryFn: api.listPutawayTasks,
-      })
-
-      const sessionComplete = updatedTasks
-        .filter((t) => t.sessionId === sessionId)
-        .every((t) => t.status === 'CONFIRMED')
-
-      if (sessionComplete) {
-        invalidate(['asns', 'docks'])
-      }
+    onSuccess: () => {
+      invalidate(['discrepancies', 'sessions', 'asns'])
+      void queryClient.invalidateQueries({ queryKey: ['putaway'] })
     },
   })
 }

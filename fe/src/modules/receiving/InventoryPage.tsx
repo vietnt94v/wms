@@ -16,8 +16,8 @@ export function InventoryPage() {
       <BackToMenuButton />
       <Heading size="xl">Inventory Update</Heading>
       <Text color="fg.muted">
-        Available stock increases after putaway confirm. Quarantine is tracked
-        separately.
+        Available stock increases after putaway conveyor confirm. Quarantine is
+        tracked separately.
       </Text>
       <Box bg="bg.panel" p="4" borderWidth="1px" borderRadius="lg">
         <Table.Root size="sm" interactive>

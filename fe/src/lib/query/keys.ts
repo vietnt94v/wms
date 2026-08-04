@@ -10,7 +10,6 @@ export const receivingKeys = {
   session: (id: string) => [...receivingKeys.sessions(), id] as const,
   discrepancies: () => [...receivingKeys.all, 'discrepancies'] as const,
   qcResults: () => [...receivingKeys.all, 'qc-results'] as const,
-  putawayTasks: () => [...receivingKeys.all, 'putaway-tasks'] as const,
   inventory: () => [...receivingKeys.all, 'inventory'] as const,
 }
 
@@ -21,7 +20,6 @@ export type ReceivingSlice =
   | 'sessions'
   | 'discrepancies'
   | 'qcResults'
-  | 'putawayTasks'
   | 'inventory'
 
 const sliceKeyMap: Record<ReceivingSlice, readonly string[]> = {
@@ -31,10 +29,16 @@ const sliceKeyMap: Record<ReceivingSlice, readonly string[]> = {
   sessions: receivingKeys.sessions(),
   discrepancies: receivingKeys.discrepancies(),
   qcResults: receivingKeys.qcResults(),
-  putawayTasks: receivingKeys.putawayTasks(),
   inventory: receivingKeys.inventory(),
 }
 
 export function receivingSliceKeys(slices: ReceivingSlice[]) {
   return [...new Set(slices)].map((slice) => sliceKeyMap[slice])
+}
+
+export const putawayKeys = {
+  all: ['putaway'] as const,
+  tasks: (status?: string) =>
+    [...putawayKeys.all, 'tasks', status ?? 'all'] as const,
+  task: (id: string) => [...putawayKeys.all, 'task', id] as const,
 }

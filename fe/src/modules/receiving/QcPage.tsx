@@ -19,7 +19,6 @@ import {
   receivedSkus,
 } from '@/lib/domain/receiving'
 import {
-  useGeneratePutawayTasksMutation,
   useQcResults,
   useSessions,
   useSubmitQcMutation,
@@ -31,7 +30,6 @@ export function QcPage() {
   const { data: sessions = [], isLoading: sessionsLoading } = useSessions()
   const { data: qcResults = [], isLoading: qcLoading } = useQcResults()
   const { mutateAsync: submitQc } = useSubmitQcMutation()
-  const { mutateAsync: generatePutawayTasks } = useGeneratePutawayTasksMutation()
 
   const qcSessions = sessions.filter((s) =>
     ['QC', 'DISCREPANCY', 'PUTAWAY'].includes(s.status),
@@ -172,26 +170,11 @@ export function QcPage() {
             >
               Fail → Quarantine
             </Button>
-            {session && (
-              <Button
-                variant="outline"
-                disabled={pendingSkus.length > 0}
-                onClick={() => {
-                  void generatePutawayTasks(session.id).then(() =>
-                    toaster.create({
-                      title: 'Putaway tasks generated',
-                      type: 'success',
-                    }),
-                  )
-                }}
-              >
-                Generate putaway tasks
-              </Button>
-            )}
           </HStack>
-          {session && pendingSkus.length > 0 && (
+          {session && pendingSkus.length === 0 && skus.length > 0 && (
             <Text fontSize="sm" color="fg.muted">
-              Complete QC for all SKUs before generating putaway tasks.
+              QC complete. Putaway tasks are created automatically when ready —
+              continue in Putaway.
             </Text>
           )}
         </Stack>

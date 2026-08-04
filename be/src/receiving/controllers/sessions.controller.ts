@@ -72,9 +72,4 @@ export class SessionsController {
   submitQc(@Param('id') id: string, @Body() body: SubmitQcDto) {
     return this.receivingService.submitQc(id, body);
   }
-
-  @Post(':id/putaway-tasks')
-  generatePutaway(@Param('id') id: string) {
-    return this.receivingService.generatePutawayTasks(id);
-  }
 }

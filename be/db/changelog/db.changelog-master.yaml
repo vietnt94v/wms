@@ -14,3 +14,6 @@ databaseChangeLog:
   - include:
       file: changesets/005-dock-assignments.sql
       relativeToChangelogFile: true
+  - include:
+      file: changesets/006-putaway-locations.sql
+      relativeToChangelogFile: true

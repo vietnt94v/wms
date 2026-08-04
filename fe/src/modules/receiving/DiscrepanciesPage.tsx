@@ -12,7 +12,6 @@ import { QueryLoading } from '@/components/ui/query-loading'
 import type { DiscrepancyResolution } from '@/lib/domain/receiving'
 import {
   useDiscrepancies,
-  useGeneratePutawayTasksMutation,
   useResolveDiscrepancyMutation,
 } from '@/lib/query/receiving'
 import { BackToMenuButton } from './BackToMenuButton'
@@ -29,7 +28,6 @@ const actions: Array<{ resolution: DiscrepancyResolution; label: string; color: 
 export function DiscrepanciesPage() {
   const { data: discrepancies = [], isLoading } = useDiscrepancies()
   const { mutateAsync: resolveDiscrepancy } = useResolveDiscrepancyMutation()
-  const { mutateAsync: generatePutawayTasks } = useGeneratePutawayTasksMutation()
 
   if (isLoading) {
     return <QueryLoading />
@@ -90,14 +88,15 @@ export function DiscrepanciesPage() {
                           size="xs"
                           colorPalette={a.color}
                           onClick={() => {
-                            void resolveDiscrepancy(d.id, a.resolution)
-                              .then(() => generatePutawayTasks(d.sessionId))
-                              .then(() =>
-                                toaster.create({
-                                  title: `Resolved: ${a.label}`,
-                                  type: 'success',
-                                }),
-                              )
+                            void resolveDiscrepancy({
+                              id: d.id,
+                              resolution: a.resolution,
+                            }).then(() =>
+                              toaster.create({
+                                title: `Resolved: ${a.label}`,
+                                type: 'success',
+                              }),
+                            )
                           }}
                         >
                           {a.label}

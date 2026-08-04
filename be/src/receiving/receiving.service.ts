@@ -5,7 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Not, Repository } from 'typeorm';
+import { DataSource, In, Not, Repository } from 'typeorm';
+import { PutawayService } from '../putaway/putaway.service';
 import { User } from '../users/entities/user.entity';
 import { findSsccOnOtherAsn, validateScan } from './domain/scan';
 import {
@@ -13,7 +14,6 @@ import {
   canGateInAsn,
   OVER_RECEIPT_TOLERANCE,
   resolveVarianceDiscrepancyType,
-  suggestLocation,
   uid,
   willCauseSsccVariance,
   willCauseVariance,
@@ -43,7 +43,6 @@ import { Dock } from './entities/dock.entity';
 import { Inventory } from './entities/inventory.entity';
 import { PalletItem } from './entities/pallet-item.entity';
 import { Product } from './entities/product.entity';
-import { PutawayTask } from './entities/putaway-task.entity';
 import { QcResult } from './entities/qc-result.entity';
 import { ReceivingSession } from './entities/receiving-session.entity';
 import { ScanEvent } from './entities/scan-event.entity';
@@ -56,6 +55,7 @@ import { Supplier } from './entities/supplier.entity';
 export class ReceivingService {
   constructor(
     private readonly dataSource: DataSource,
+    private readonly putawayService: PutawayService,
     @InjectRepository(Supplier)
     private readonly suppliersRepo: Repository<Supplier>,
     @InjectRepository(Product)
@@ -90,8 +90,6 @@ export class ReceivingService {
     private readonly discrepanciesRepo: Repository<Discrepancy>,
     @InjectRepository(QcResult)
     private readonly qcResultsRepo: Repository<QcResult>,
-    @InjectRepository(PutawayTask)
-    private readonly putawayTasksRepo: Repository<PutawayTask>,
     @InjectRepository(Inventory)
     private readonly inventoryRepo: Repository<Inventory>,
   ) {}
@@ -1022,6 +1020,8 @@ export class ReceivingService {
       }
     });
 
+    await this.putawayService.tryGenerateTasks(sessionId);
+
     return {
       ok: true as const,
       message: dto.pass
@@ -1079,161 +1079,9 @@ export class ReceivingService {
       }
     });
 
-    return { ok: true as const };
-  }
-
-  listPutawayTasks() {
-    return this.putawayTasksRepo.find({ order: { id: 'ASC' } }).then((rows) =>
-      rows.map((t) => ({
-        id: t.id,
-        sessionId: t.sessionId,
-        asnId: t.asnId,
-        sscc: t.sscc ?? undefined,
-        sku: t.sku,
-        qty: t.qty,
-        suggestedLocation: t.suggestedLocation,
-        status: t.status,
-        quarantine: t.quarantine,
-      })),
-    );
-  }
-
-  async generatePutawayTasks(sessionId: string) {
-    const sessionEntity = await this.sessionsRepo.findOne({
-      where: { id: sessionId },
-    });
-    if (!sessionEntity)
-      throw new NotFoundException(`Session ${sessionId} not found`);
-
-    const existing = await this.putawayTasksRepo.count({
-      where: { sessionId },
-    });
-    if (existing > 0) {
-      return { ok: true as const, message: 'Tasks already generated' };
-    }
-
-    const session = await this.toSessionDto(sessionEntity);
-    const grouped = new Map<string, { qty: number; quarantine: boolean }>();
-    for (const line of session.receivedLines) {
-      const key = `${line.sku}|${line.quarantine ? 'Q' : 'A'}`;
-      const prev = grouped.get(key) ?? {
-        qty: 0,
-        quarantine: !!line.quarantine,
-      };
-      grouped.set(key, {
-        qty: prev.qty + line.qty,
-        quarantine: !!line.quarantine,
-      });
-    }
-
-    await this.dataSource.transaction(async (manager) => {
-      for (const [key, val] of grouped.entries()) {
-        const sku = key.split('|')[0];
-        await manager.save(
-          PutawayTask,
-          manager.create(PutawayTask, {
-            id: uid('PUT'),
-            sessionId,
-            asnId: session.asnId,
-            sku,
-            qty: val.qty,
-            suggestedLocation: suggestLocation(sku, val.quarantine),
-            status: 'PENDING',
-            quarantine: val.quarantine,
-          }),
-        );
-      }
-      await manager.update(
-        ReceivingSession,
-        { id: sessionId },
-        { status: 'PUTAWAY' },
-      );
-      if (session.asnId !== 'UNKNOWN') {
-        await manager.update(Asn, { id: session.asnId }, { status: 'PUTAWAY' });
-      }
-    });
+    await this.putawayService.tryGenerateTasks(disc.sessionId);
 
     return { ok: true as const };
-  }
-
-  async confirmPutaway(taskId: string) {
-    const task = await this.putawayTasksRepo.findOne({ where: { id: taskId } });
-    if (!task) throw new NotFoundException(`Putaway task ${taskId} not found`);
-
-    let alreadyConfirmed = task.status === 'CONFIRMED';
-
-    await this.dataSource.transaction(async (manager) => {
-      await manager.findOne(ReceivingSession, {
-        where: { id: task.sessionId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      const current = await manager.findOne(PutawayTask, {
-        where: { id: taskId },
-      });
-      if (!current) {
-        throw new NotFoundException(`Putaway task ${taskId} not found`);
-      }
-
-      if (current.status !== 'CONFIRMED') {
-        await manager.update(
-          PutawayTask,
-          { id: taskId },
-          { status: 'CONFIRMED' },
-        );
-        if (!current.quarantine) {
-          await manager.increment(
-            Inventory,
-            { sku: current.sku },
-            'available',
-            current.qty,
-          );
-        }
-      } else {
-        alreadyConfirmed = true;
-      }
-
-      await this.completeReceivingSessionIfReady(manager, task.sessionId);
-    });
-
-    return alreadyConfirmed
-      ? ({ ok: true as const, message: 'Already confirmed' } as const)
-      : ({ ok: true as const } as const);
-  }
-
-  private async completeReceivingSessionIfReady(
-    manager: EntityManager,
-    sessionId: string,
-  ): Promise<void> {
-    const pending = await manager.count(PutawayTask, {
-      where: { sessionId, status: 'PENDING' },
-    });
-    if (pending > 0) return;
-
-    const session = await manager.findOne(ReceivingSession, {
-      where: { id: sessionId },
-    });
-    if (!session || ['COMPLETED', 'REJECTED'].includes(session.status)) {
-      return;
-    }
-
-    await manager.update(
-      ReceivingSession,
-      { id: sessionId },
-      { status: 'COMPLETED' },
-    );
-    if (session.asnId !== 'UNKNOWN') {
-      await manager.update(Asn, { id: session.asnId }, { status: 'COMPLETED' });
-      await manager.update(
-        Appointment,
-        {
-          asnId: session.asnId,
-          status: In(['BOOKED', 'ARRIVED']),
-        },
-        { status: 'COMPLETED' },
-      );
-    }
-    await manager.update(Dock, { id: session.dockId }, { status: 'AVAILABLE' });
   }
 
   listInventory() {
