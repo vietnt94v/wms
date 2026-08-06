@@ -37,7 +37,10 @@ export function ScanWorkspace({ session, asn }: Props) {
   const { data: products = [] } = useProducts()
   const { mutateAsync: scan } = useScanMutation()
 
-  const [scanDialogOpen, setScanDialogOpen] = useState(true)
+  const [scanDialogOpen, setScanDialogOpen] = useState(() =>
+    asn.lines.some((l) => l.receivedQty < l.expectedQty),
+  )
+  const [manualScanOverride, setManualScanOverride] = useState(false)
   const [lot, setLot] = useState('')
   const [expiry, setExpiry] = useState('')
   const [allowOver, setAllowOver] = useState(false)
@@ -63,6 +66,16 @@ export function ScanWorkspace({ session, asn }: Props) {
     const received = asn.lines.reduce((s, l) => s + l.receivedQty, 0)
     return expected === 0 ? 0 : Math.min(100, Math.round((received / expected) * 100))
   }, [asn.lines])
+
+  const hasRemainingToReceive = useMemo(
+    () => asn.lines.some((l) => l.receivedQty < l.expectedQty),
+    [asn.lines],
+  )
+
+  const isScanDialogOpen =
+    scanDialogOpen &&
+    !pendingCode &&
+    (hasRemainingToReceive || manualScanOverride)
 
   const exceptions = session.scanEvents.filter((e) => e.result !== 'OK')
 
@@ -116,13 +129,26 @@ export function ScanWorkspace({ session, asn }: Props) {
     !lotRequiredMissing &&
     (!hasVariance || !!resolvedVarianceReason)
 
-  const resetPending = () => {
+  const hasRemainingAfterPending = (
+    lines: ASN['lines'],
+    pending: ScanLineInput[],
+  ) =>
+    lines.some((line) => {
+      const added = pending
+        .filter((p) => p.sku === line.sku)
+        .reduce((s, p) => s + p.qty, 0)
+      return line.receivedQty + added < line.expectedQty
+    })
+
+  const resetPending = (reopenScan?: boolean) => {
     setPendingCode('')
     setPendingKind(null)
     setPendingLines([])
     setVarianceReasonId('')
     setOtherReasonText('')
-    setScanDialogOpen(true)
+    const reopen = reopenScan ?? hasRemainingToReceive
+    setScanDialogOpen(reopen)
+    setManualScanOverride(false)
   }
 
   const onResolve = (code: string) => {
@@ -212,7 +238,7 @@ export function ScanWorkspace({ session, asn }: Props) {
           description: `${event.message}${event.actionHint ? ` — ${event.actionHint}` : ''}`,
           type: 'success',
         })
-        resetPending()
+        resetPending(hasRemainingAfterPending(asn.lines, pendingLines))
         setLot('')
         setExpiry('')
         setAllowOver(false)
@@ -247,11 +273,14 @@ export function ScanWorkspace({ session, asn }: Props) {
   return (
     <Stack gap="4">
       <BarcodeScanDialog
-        open={scanDialogOpen && !pendingCode}
+        open={isScanDialogOpen}
         title={scanTitle}
         placeholder={scanPlaceholder}
         onSubmit={onResolve}
-        onClose={() => setScanDialogOpen(false)}
+        onClose={() => {
+          setScanDialogOpen(false)
+          setManualScanOverride(false)
+        }}
       />
       <OperatorAlertDialog
         open={!!operatorAlert}
@@ -273,10 +302,13 @@ export function ScanWorkspace({ session, asn }: Props) {
         </Progress.Root>
 
         <Stack gap="3">
-          {!pendingCode && !scanDialogOpen && (
+          {!pendingCode && !isScanDialogOpen && (
             <Button
               colorPalette="blue"
-              onClick={() => setScanDialogOpen(true)}
+              onClick={() => {
+                setScanDialogOpen(true)
+                setManualScanOverride(true)
+              }}
               alignSelf="start"
             >
               Scan barcode
@@ -319,7 +351,7 @@ export function ScanWorkspace({ session, asn }: Props) {
                     ? `Pallet ${pendingCode}`
                     : pendingLines[0]?.sku}
                 </Text>
-                <Button size="sm" variant="ghost" onClick={resetPending}>
+                <Button size="sm" variant="ghost" onClick={() => resetPending()}>
                   Clear
                 </Button>
               </HStack>
