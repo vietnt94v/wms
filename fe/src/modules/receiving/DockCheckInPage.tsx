@@ -3,14 +3,13 @@ import {
   Box,
   Button,
   Heading,
-  HStack,
   Spinner,
   Stack,
   Text,
 } from '@chakra-ui/react'
 import { isAxiosError } from 'axios'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { FormInput } from '@/components/ui/form-input'
+import { BarcodeScanDialog } from '@/components/ui/barcode-scan-dialog'
 import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
 import { OperatorConfirmDialog } from '@/components/ui/operator-confirm-dialog'
 import { useQueryClient } from '@tanstack/react-query'
@@ -37,7 +36,7 @@ export function DockCheckInPage() {
   const loaded = useDockAssignmentStore((s) => s.loaded)
   const checkIn = useDockAssignmentStore((s) => s.checkIn)
 
-  const [code, setCode] = useState('')
+  const [scanDialogOpen, setScanDialogOpen] = useState(true)
   const [pendingDockId, setPendingDockId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [alert, setAlert] = useState<{ title: string; description: string } | null>(
@@ -63,8 +62,8 @@ export function DockCheckInPage() {
     ? docks.find((d) => d.id === pendingDockId)
     : undefined
 
-  const resolveScan = () => {
-    const dockId = code.trim().toUpperCase()
+  const resolveScan = (scannedCode: string) => {
+    const dockId = scannedCode.trim().toUpperCase()
     if (!dockId) return
     const dock = docks.find((d) => d.id.toUpperCase() === dockId)
     if (!dock) {
@@ -74,6 +73,7 @@ export function DockCheckInPage() {
       })
       return
     }
+    setScanDialogOpen(false)
     setPendingDockId(dock.id)
   }
 
@@ -84,10 +84,11 @@ export function DockCheckInPage() {
       await checkIn(pendingDockId)
       void queryClient.invalidateQueries({ queryKey: receivingKeys.docks() })
       setPendingDockId(null)
-      setCode('')
+      setScanDialogOpen(true)
       navigate('/receiving', { replace: true })
     } catch (error) {
       setPendingDockId(null)
+      setScanDialogOpen(true)
       setAlert({
         title: 'Check-in failed',
         description: errorMessage(error),
@@ -99,6 +100,14 @@ export function DockCheckInPage() {
 
   return (
     <Stack gap="6" maxW="480px" mx="auto" mt="8">
+      <BarcodeScanDialog
+        open={scanDialogOpen && !pendingDockId}
+        title="Scan Dock"
+        placeholder="Scan dock ID (e.g. D01)"
+        onSubmit={resolveScan}
+        onClose={() => setScanDialogOpen(false)}
+        disabled={submitting}
+      />
       <Stack gap="1">
         <Heading size="2xl">Dock check-in</Heading>
         <Text color="fg.muted">
@@ -108,28 +117,14 @@ export function DockCheckInPage() {
 
       <Box bg="bg.panel" p="6" borderWidth="1px" borderRadius="xl">
         <Stack gap="4">
-          <FormInput
-            label="Dock ID"
-            autoFocus
-            size="lg"
-            placeholder="Scan dock ID (e.g. D01)"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') resolveScan()
-            }}
-            disabled={!!pendingDockId || submitting}
-          />
-          <HStack>
+          {!scanDialogOpen && !pendingDockId && (
             <Button
               colorPalette="blue"
-              flex="1"
-              onClick={resolveScan}
-              disabled={!code.trim() || !!pendingDockId || submitting}
+              onClick={() => setScanDialogOpen(true)}
             >
-              Scan
+              Scan dock ID
             </Button>
-          </HStack>
+          )}
           <Text fontSize="sm" color="fg.muted">
             Available docks:{' '}
             {docks.map((d) => d.id).join(', ') || 'none loaded'}
@@ -146,7 +141,10 @@ export function DockCheckInPage() {
         loading={submitting}
         onConfirm={() => void handleConfirm()}
         onCancel={() => {
-          if (!submitting) setPendingDockId(null)
+          if (!submitting) {
+            setPendingDockId(null)
+            setScanDialogOpen(true)
+          }
         }}
       />
 

@@ -10,6 +10,7 @@ import {
   Table,
   Text,
 } from '@chakra-ui/react'
+import { BarcodeScanDialog } from '@/components/ui/barcode-scan-dialog'
 import { FormInput } from '@/components/ui/form-input'
 import { QuantityStepper } from '@/components/ui/quantity-stepper'
 import { OperatorAlertDialog } from '@/components/ui/operator-alert-dialog'
@@ -36,7 +37,7 @@ export function ScanWorkspace({ session, asn }: Props) {
   const { data: products = [] } = useProducts()
   const { mutateAsync: scan } = useScanMutation()
 
-  const [code, setCode] = useState('')
+  const [scanDialogOpen, setScanDialogOpen] = useState(true)
   const [lot, setLot] = useState('')
   const [expiry, setExpiry] = useState('')
   const [allowOver, setAllowOver] = useState(false)
@@ -121,12 +122,10 @@ export function ScanWorkspace({ session, asn }: Props) {
     setPendingLines([])
     setVarianceReasonId('')
     setOtherReasonText('')
-    setCode('')
+    setScanDialogOpen(true)
   }
 
-  const onResolve = () => {
-    if (!code.trim()) return
-
+  const onResolve = (code: string) => {
     const preview = validateScan({
       code,
       session,
@@ -180,6 +179,7 @@ export function ScanWorkspace({ session, asn }: Props) {
     setPendingLines(lines.map((l) => ({ ...l })))
     setVarianceReasonId('')
     setOtherReasonText('')
+    setScanDialogOpen(false)
   }
 
   const updateLineQty = (sku: string, qty: number) => {
@@ -237,8 +237,22 @@ export function ScanWorkspace({ session, asn }: Props) {
     }
   }
 
+  const scanTitle =
+    session.mode === 'SSCC' ? 'Scan SSCC' : 'Scan Container'
+  const scanPlaceholder =
+    session.mode === 'SSCC'
+      ? 'Scan SSCC (e.g. 00012345678901234567)'
+      : 'Scan SKU barcode'
+
   return (
     <Stack gap="4">
+      <BarcodeScanDialog
+        open={scanDialogOpen && !pendingCode}
+        title={scanTitle}
+        placeholder={scanPlaceholder}
+        onSubmit={onResolve}
+        onClose={() => setScanDialogOpen(false)}
+      />
       <OperatorAlertDialog
         open={!!operatorAlert}
         title={operatorAlert?.title ?? ''}
@@ -259,22 +273,16 @@ export function ScanWorkspace({ session, asn }: Props) {
         </Progress.Root>
 
         <Stack gap="3">
-          <FormInput
-            label="Scan code"
-            autoFocus
-            placeholder={
-              session.mode === 'SSCC'
-                ? 'Scan SSCC (e.g. 00012345678901234567)'
-                : 'Scan SKU barcode'
-            }
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onResolve()
-            }}
-            disabled={!!pendingCode}
-          />
-          {session.mode === 'CONTAINER' && (
+          {!pendingCode && !scanDialogOpen && (
+            <Button
+              colorPalette="blue"
+              onClick={() => setScanDialogOpen(true)}
+              alignSelf="start"
+            >
+              Scan barcode
+            </Button>
+          )}
+          {session.mode === 'CONTAINER' && pendingCode && (
             <HStack align="flex-end">
               <Box flex="1">
                 <FormInput
@@ -303,11 +311,7 @@ export function ScanWorkspace({ session, asn }: Props) {
             </HStack>
           )}
 
-          {!pendingCode ? (
-            <Button colorPalette="blue" onClick={onResolve} alignSelf="start">
-              Scan
-            </Button>
-          ) : (
+          {pendingCode && (
             <Stack gap="3" borderWidth="1px" borderRadius="md" p="3">
               <HStack justify="space-between">
                 <Text fontWeight="medium">

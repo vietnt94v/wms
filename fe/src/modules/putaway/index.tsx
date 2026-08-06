@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import axios from 'axios'
 import {
   Badge,
@@ -10,7 +10,7 @@ import {
   Table,
   Text,
 } from '@chakra-ui/react'
-import { FormInput } from '@/components/ui/form-input'
+import { BarcodeScanDialog } from '@/components/ui/barcode-scan-dialog'
 import { QueryLoading } from '@/components/ui/query-loading'
 import { toaster } from '@/components/ui/toaster'
 import type { PutawayTask } from '@/lib/domain/putaway'
@@ -24,7 +24,7 @@ export function PutawayPage() {
   const { mutateAsync: confirmPutaway, isPending } = useConfirmPutawayMutation()
 
   const [selectedId, setSelectedId] = useState<string>('')
-  const [scanCode, setScanCode] = useState('')
+  const [scanDialogOpen, setScanDialogOpen] = useState(false)
   const [lastAssigned, setLastAssigned] = useState<string | null>(null)
 
   const pendingTasks = useMemo(
@@ -43,21 +43,14 @@ export function PutawayPage() {
 
   const selectTask = (task: PutawayTask) => {
     setSelectedId(task.id)
-    setScanCode('')
+    setScanDialogOpen(true)
     setLastAssigned(null)
   }
 
-  useEffect(() => {
+  const handleConfirm = async (code: string) => {
     if (!selected) return
-    if (selectedId === selected.id) return
-    selectTask(selected)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- sync selection when task list changes
-  }, [selected?.id, pendingTasks.length])
-
-  const handleConfirm = async () => {
-    if (!selected) return
-    const code = scanCode.trim()
-    if (!code) {
+    const trimmed = code.trim()
+    if (!trimmed) {
       toaster.create({
         title: 'Scan required',
         description: 'Scan the pallet/container code before loading',
@@ -69,7 +62,7 @@ export function PutawayPage() {
     try {
       const result = await confirmPutaway({
         taskId: selected.id,
-        code,
+        code: trimmed,
       })
       setLastAssigned(result.assignedLocation ?? null)
       toaster.create({
@@ -78,7 +71,7 @@ export function PutawayPage() {
         type: 'success',
       })
       setSelectedId('')
-      setScanCode('')
+      setScanDialogOpen(false)
     } catch (err) {
       const message = axios.isAxiosError(err)
         ? (err.response?.data?.message as string | undefined) ?? err.message
@@ -93,6 +86,14 @@ export function PutawayPage() {
 
   return (
     <Stack gap="4">
+      <BarcodeScanDialog
+        open={!!selected && scanDialogOpen}
+        title="Scan Container"
+        placeholder={selected?.handlingUnitCode ?? 'Scan SSCC / container'}
+        loading={isPending}
+        onSubmit={(code) => void handleConfirm(code)}
+        onClose={() => setScanDialogOpen(false)}
+      />
       <Stack gap="1">
         <Heading size="xl">Putaway</Heading>
         <Text color="fg.muted">
@@ -221,23 +222,11 @@ export function PutawayPage() {
                 ))}
               </Stack>
 
-              <FormInput
-                label="Scan SSCC / container"
-                value={scanCode}
-                onChange={(e) => setScanCode(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleConfirm()
-                }}
-                placeholder={selected.handlingUnitCode}
-                autoFocus
-              />
-
               <Button
-                colorPalette="green"
-                disabled={isPending}
-                onClick={() => void handleConfirm()}
+                colorPalette="blue"
+                onClick={() => setScanDialogOpen(true)}
               >
-                Load to conveyor
+                Scan to load
               </Button>
             </Stack>
           )}
